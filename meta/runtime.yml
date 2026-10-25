@@ -32,3 +32,5 @@ action_groups:
     - device_info
     - category
     - category_info
+    - user
+    - user_info

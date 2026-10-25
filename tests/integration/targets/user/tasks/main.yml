@@ -1,0 +1,185 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  vars:
+    password1: ansible-test-user-pw-1
+    password2: ansible-test-user-pw-2
+  block:
+    - name: Remove leftovers of earlier runs
+      egors.homeassistant.user:
+        username: ansible_test_user
+        state: absent
+
+    - name: Username that is not normalized
+      egors.homeassistant.user:
+        username: Ansible_Test_User
+        password: "{{ password1 }}"
+      register: not_normalized
+      ignore_errors: true
+
+    - name: Create without a password
+      egors.homeassistant.user:
+        username: ansible_test_user
+      register: no_password
+      ignore_errors: true
+
+    - name: Create in check mode
+      egors.homeassistant.user: &create_args
+        username: ansible_test_user
+        name: Ansible Test User
+        password: "{{ password1 }}"
+        local_only: true
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Read users after check mode
+      egors.homeassistant.user_info:
+        username: ansible_test_user
+      register: after_check
+
+    - name: Create
+      egors.homeassistant.user: *create_args
+      register: created
+
+    - name: Create again
+      egors.homeassistant.user: *create_args
+      register: created_again
+
+    - name: Log in as the new user
+      egors.homeassistant.login:
+        url: "{{ ha_url }}"
+        username: ansible_test_user
+        password: "{{ password1 }}"
+      register: login1
+      no_log: true
+
+    - name: Create behaved
+      ansible.builtin.assert:
+        that:
+          - not_normalized is failed
+          - "'lowercase' in not_normalized.msg"
+          - no_password is failed
+          - "'password is required' in no_password.msg"
+          - create_check is changed
+          - create_check.user.user_id is none
+          - create_check.diff.before == {}
+          - "'password' not in create_check.diff.after"
+          - after_check.users == []
+          - created is changed
+          - created.user.username == 'ansible_test_user'
+          - created.user.name == 'Ansible Test User'
+          - created.user.admin == false
+          - created.user.active == true
+          - created.user.local_only == true
+          - created.user.owner == false
+          - created_again is not changed
+          - login1.token | length > 20
+
+    - name: Make an admin, allow remote login
+      egors.homeassistant.user: &update
+        username: ansible_test_user
+        admin: true
+        local_only: false
+      diff: true
+      register: updated
+
+    - name: Again
+      egors.homeassistant.user: *update
+      register: updated_again
+
+    - name: Rotate the password
+      egors.homeassistant.user:
+        username: ansible_test_user
+        password: "{{ password2 }}"
+        update_password: always
+      register: rotated
+
+    - name: Rotate in check mode
+      egors.homeassistant.user:
+        username: ansible_test_user
+        password: "{{ password2 }}"
+        update_password: always
+      check_mode: true
+      register: rotated_check
+
+    - name: A password with on_create is left alone
+      egors.homeassistant.user:
+        username: ansible_test_user
+        password: "{{ password1 }}"
+      register: on_create
+
+    - name: Log in with the rotated password
+      egors.homeassistant.login:
+        url: "{{ ha_url }}"
+        username: ansible_test_user
+        password: "{{ password2 }}"
+      register: login2
+      no_log: true
+
+    - name: Deactivate
+      egors.homeassistant.user:
+        username: ansible_test_user
+        active: false
+      register: deactivated
+
+    - name: Read the user
+      egors.homeassistant.user_info:
+        username: ansible_test_user
+      register: info
+
+    - name: Updates behaved
+      ansible.builtin.assert:
+        that:
+          - updated is changed
+          - updated.diff.before.admin == false
+          - updated.user.admin == true
+          - updated.user.local_only == false
+          - updated_again is not changed
+          - rotated is changed
+          - rotated_check is changed
+          - on_create is not changed
+          - login2.token | length > 20
+          - deactivated is changed
+          - deactivated.user.active == false
+          - info.users | length == 1
+          - info.users[0].admin == true
+
+    - name: Delete in check mode
+      egors.homeassistant.user: &delete
+        username: ansible_test_user
+        state: absent
+      check_mode: true
+      register: delete_check
+
+    - name: Delete
+      egors.homeassistant.user: *delete
+      register: deleted
+
+    - name: Delete again
+      egors.homeassistant.user: *delete
+      register: deleted_again
+
+    - name: Delete the user of the token
+      egors.homeassistant.user:
+        username: "{{ ha_owner_username }}"
+        state: absent
+      register: delete_self
+      ignore_errors: true
+
+    - name: Delete behaved
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - deleted is changed
+          - deleted.user == {}
+          - deleted_again is not changed
+          - delete_self is failed
+
+  always:
+    - name: Clean up
+      egors.homeassistant.user:
+        username: ansible_test_user
+        state: absent
