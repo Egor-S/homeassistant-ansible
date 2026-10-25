@@ -28,3 +28,18 @@
   egors.homeassistant.counter:
     name: ansible_test_counter
     state: absent
+
+- name: Delete the test date/time
+  egors.homeassistant.input_datetime:
+    name: ansible_test_datetime
+    state: absent
+
+- name: Delete the test timer
+  egors.homeassistant.timer:
+    name: ansible_test_timer
+    state: absent
+
+- name: Delete the test schedule
+  egors.homeassistant.schedule:
+    name: ansible_test_schedule
+    state: absent

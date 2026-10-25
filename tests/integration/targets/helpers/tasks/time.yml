@@ -1,0 +1,159 @@
+---
+# Helpers whose values Home Assistant rewrites: the module compares them in the stored form.
+
+# input_datetime
+- name: Create a date/time without date or time
+  egors.homeassistant.input_datetime:
+    name: ansible_test_datetime
+  register: datetime_neither
+  ignore_errors: true
+
+- name: Create a time
+  egors.homeassistant.input_datetime: &datetime
+    name: ansible_test_datetime
+    has_time: true
+    initial: "07:00"
+  register: datetime_created
+
+- name: Create it again
+  egors.homeassistant.input_datetime: *datetime
+  register: datetime_again
+
+- name: Add the date and remove the initial value
+  egors.homeassistant.input_datetime:
+    name: ansible_test_datetime
+    has_date: true
+    initial: ""
+  register: datetime_changed
+
+- name: Date/time behaved
+  ansible.builtin.assert:
+    that:
+      - datetime_neither is failed
+      - "'at least a date or a time' in datetime_neither.msg"
+      - datetime_created is changed
+      - datetime_created.input_datetime.has_date == false
+      - datetime_created.input_datetime.initial == '07:00'
+      - datetime_again is not changed
+      - datetime_changed is changed
+      - datetime_changed.input_datetime.has_date == true
+      - datetime_changed.input_datetime.has_time == true
+      - datetime_changed.input_datetime.initial is none
+
+# timer
+- name: Create a timer
+  egors.homeassistant.timer:
+    name: ansible_test_timer
+    duration: 90
+  register: timer_created
+
+- name: Same duration written differently
+  egors.homeassistant.timer:
+    name: ansible_test_timer
+    duration: "00:01:30"
+    restore: false
+  register: timer_again
+
+- name: Change the duration
+  egors.homeassistant.timer:
+    name: ansible_test_timer
+    duration: "1:30"
+    restore: true
+  register: timer_changed
+
+- name: Invalid duration
+  egors.homeassistant.timer:
+    name: ansible_test_timer
+    duration: soon
+  register: timer_invalid
+  ignore_errors: true
+
+- name: Timer behaved
+  ansible.builtin.assert:
+    that:
+      - timer_created is changed
+      - timer_created.timer.duration == '0:01:30'
+      - timer_created.timer.restore == false
+      - timer_again is not changed
+      - timer_changed is changed
+      - timer_changed.timer.duration == '1:30:00'
+      - timer_changed.timer.restore == true
+      - timer_invalid is failed
+      - "'invalid duration' in timer_invalid.msg"
+
+# schedule
+- name: Create a schedule
+  egors.homeassistant.schedule:
+    name: ansible_test_schedule
+    monday:
+      - from: "13:00"
+        to: "17:30"
+        data:
+          location: office
+      - from: "9:00"
+        to: "12:00"
+    sunday:
+      - from: "22:00"
+        to: "24:00"
+  register: schedule_created
+
+- name: Same schedule, other order and spelling
+  egors.homeassistant.schedule:
+    name: ansible_test_schedule
+    monday:
+      - from: "09:00:00"
+        to: "12:00"
+      - from: "13:00"
+        to: "17:30:00"
+        data:
+          location: office
+  register: schedule_again
+
+- name: Change Tuesday only
+  egors.homeassistant.schedule:
+    name: ansible_test_schedule
+    tuesday:
+      - from: "8:00"
+        to: "9:00"
+  register: schedule_tuesday
+
+- name: Clear Monday
+  egors.homeassistant.schedule:
+    name: ansible_test_schedule
+    monday: []
+  register: schedule_nomonday
+
+- name: Overlapping ranges
+  egors.homeassistant.schedule:
+    name: ansible_test_schedule
+    friday:
+      - from: "8:00"
+        to: "10:00"
+      - from: "9:00"
+        to: "11:00"
+  register: schedule_overlap
+  ignore_errors: true
+
+- name: Read the schedule
+  egors.homeassistant.helper_info:
+    type: schedule
+    name: ansible_test_schedule
+  register: schedule_info
+
+- name: Schedule behaved
+  ansible.builtin.assert:
+    that:
+      - schedule_created is changed
+      - "schedule_created.schedule.monday == [{'from': '09:00:00', 'to': '12:00:00'}, {'from': '13:00:00', 'to': '17:30:00', 'data': {'location': 'office'}}]"
+      - "schedule_created.schedule.sunday == [{'from': '22:00:00', 'to': '24:00:00'}]"
+      - schedule_created.schedule.tuesday == []
+      - schedule_again is not changed
+      - schedule_tuesday is changed
+      - schedule_tuesday.schedule.monday | length == 2
+      - "schedule_tuesday.schedule.tuesday == [{'from': '08:00:00', 'to': '09:00:00'}]"
+      - schedule_nomonday is changed
+      - schedule_nomonday.schedule.monday == []
+      - schedule_nomonday.schedule.sunday | length == 1
+      - schedule_overlap is failed
+      - "'Overlapping' in schedule_overlap.msg"
+      - "schedule_info.helpers[0].tuesday == [{'from': '08:00:00', 'to': '09:00:00'}]"

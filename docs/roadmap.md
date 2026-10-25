@@ -55,3 +55,4 @@ setup (interactive). Revisit on request.
 | 1 | done | #3 |
 | 2 | done | #4 |
 | 3a | done | #5 |
+| 3b | done | #6 |

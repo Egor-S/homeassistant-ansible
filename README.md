@@ -36,7 +36,7 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.label_info` | List labels |
 | `egors.homeassistant.zone` | Manage a single zone (location, radius, passive, icon) |
 | `egors.homeassistant.zone_info` | List zones |
-| `egors.homeassistant.input_boolean`, `input_button`, `input_number`, `input_select`, `input_text`, `counter` | Manage a single helper of that type |
+| `egors.homeassistant.input_boolean`, `input_button`, `input_datetime`, `input_number`, `input_select`, `input_text`, `counter`, `timer`, `schedule` | Manage a single helper of that type |
 | `egors.homeassistant.helper_info` | List helpers of one type |
 
 All modules except `onboarding` and `login` belong to the action group
@@ -93,8 +93,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 
 | Setting | Status | API / notes |
 |---|---|---|
-| `input_boolean`, `input_button`, `input_number`, `input_select`, `input_text`, `counter` | ✅ one module each, `helper_info` | WS `<domain>/*` (storage collections) |
-| `input_datetime`, `timer`, `schedule` | 🟡 | WS `<domain>/{list,create,update,delete}` |
+| `input_boolean`, `input_button`, `input_datetime`, `input_number`, `input_select`, `input_text`, `counter`, `timer`, `schedule` | ✅ one module each, `helper_info` | WS `<domain>/*` (storage collections) |
 | Template, group, threshold, and other config-flow helpers | 🟡 | Config entry flows, see Integrations |
 
 ### Integrations
