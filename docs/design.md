@@ -28,6 +28,8 @@ time. Support for older versions may be added later.
 - **Common connection options** via a doc fragment: `url`, `token`,
   `validate_certs`, `timeout`, with `HASS_URL` / `HASS_TOKEN` env fallbacks.
   Action group `egors.homeassistant.all` so `module_defaults` can set them once.
+  `onboarding` is **not** in the group: it takes no `token`, and `module_defaults`
+  for a group fails modules that do not accept every default.
 - **Version check**: modules read the HA version (WS auth response) and
   **warn** — never fail — when it is older than the `MIN_HA_VERSION` constant.
 
@@ -55,8 +57,11 @@ assignments), hence opt-in.
   (and re-runs to prove idempotency); a `setup_ha` target provides the token to
   the other targets; targets clean up after themselves.
 - Local runs use the same `docker compose` file as CI.
-- CI: GitHub Actions, HA as a service container; matrix over the **last two
-  ansible-core releases**.
+- CI: GitHub Actions; matrix over the **last two ansible-core releases**
+  (2.20, 2.21). HA is started by `scripts/integration.sh` from the same
+  `docker-compose.yml` as local runs (instead of a job service container) for
+  exact local/CI parity. The image pin is bumped by **Dependabot**
+  (`docker-compose` ecosystem; no app install needed, unlike Renovate).
 
 ## Project
 
@@ -74,6 +79,29 @@ assignments), hence opt-in.
 5. Adding another registry resource (e.g. floors) is mostly copying the area
    module (~100 lines). If not, revisit the module structure before adding
    features.
+
+## Implementation notes (deviations found while building)
+
+- Onboarding steps after `user` use the short-lived access token (the
+  `integration` step rejects long-lived tokens).
+- A run interrupted after the `user` step recovers by logging in as the owner via
+  `/auth/login_flow`, so `token_path` is not needed for recovery.
+- `--check` on a never-onboarded instance cannot get past `onboarding` (no token
+  yet to query anything else).
+- Generic registry logic (find/diff/create/update/delete, check mode, diff) lives
+  in `module_utils/registry.py`; `area.py` is ~20 lines of code plus docs.
+
+## MVP status (2026-10-25, HA 2026.10.4)
+
+1. ✅ Fresh container → configured, one playbook (`examples/site.yml`).
+2. ✅ Second run `changed=0`.
+3. ✅ `--check --diff` shows pending changes without applying (on an onboarded
+   instance).
+4. ⏳ CI workflow written and every suite passes locally on ansible-core 2.20 and
+   2.21; not yet run on GitHub Actions.
+5. 🟡 Expected: a floor/label module is `area.py` with a new argument spec and
+   `Registry(module, "config/floor_registry", "floor_id", ...)`. Not yet proven by
+   adding one.
 
 ## Open
 

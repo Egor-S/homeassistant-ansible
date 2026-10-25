@@ -1,0 +1,50 @@
+---
+# From a fresh Home Assistant to a configured one, in one playbook.
+#   ansible-playbook examples/site.yml -e hass_url=http://127.0.0.1:8123 -e hass_password=...
+- name: Provision Home Assistant
+  hosts: localhost
+  gather_facts: false
+  vars:
+    hass_url: http://127.0.0.1:8123
+    hass_token_path: "{{ playbook_dir }}/.hass.token"
+  tasks:
+    - name: Onboard (or read back the token of an onboarded instance)
+      egors.homeassistant.onboarding:
+        url: "{{ hass_url }}"
+        name: Admin
+        username: admin
+        password: "{{ hass_password }}"
+        token_path: "{{ hass_token_path }}"
+      register: hass_onboarding
+
+    - name: Configure
+      module_defaults:
+        group/egors.homeassistant.all:
+          url: "{{ hass_url }}"
+          token: "{{ hass_onboarding.token }}"
+      block:
+        - name: Core configuration
+          egors.homeassistant.core_config:
+            location_name: Cottage
+            latitude: 59.9375
+            longitude: 30.3086
+            elevation: 12
+            time_zone: Europe/Helsinki
+            country: FI
+            unit_system: metric
+
+        - name: Areas
+          egors.homeassistant.area:
+            name: "{{ item.name }}"
+            aliases: "{{ item.aliases | default(omit) }}"
+            icon: "{{ item.icon | default(omit) }}"
+          loop:
+            - name: Hallway
+              icon: mdi:door
+            - name: Office
+              aliases: [Study, Workroom]
+
+        - name: Remove a default area
+          egors.homeassistant.area:
+            name: Bedroom
+            state: absent

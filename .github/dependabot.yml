@@ -1,0 +1,12 @@
+---
+version: 2
+updates:
+  # Bumps the pinned Home Assistant image; each release gets its own PR.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: daily
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

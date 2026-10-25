@@ -1,0 +1,47 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.suite }} (ansible-core ${{ matrix.ansible-core }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ansible-core: ["2.20", "2.21"]
+        suite: [sanity, units, integration]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Create dev venv
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv -r requirements-dev.txt "ansible-core~=${{ matrix.ansible-core }}.0"
+
+      - name: Install shellcheck
+        if: matrix.suite == 'sanity'
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Sanity
+        if: matrix.suite == 'sanity'
+        run: scripts/ansible-test.sh sanity --venv --python 3.12
+
+      - name: Units
+        if: matrix.suite == 'units'
+        run: scripts/ansible-test.sh units --venv --python 3.12
+
+      # Starts the pinned HA from docker-compose.yml, same as local runs.
+      - name: Integration
+        if: matrix.suite == 'integration'
+        run: scripts/integration.sh
+
+      - name: Home Assistant logs
+        if: failure() && matrix.suite == 'integration'
+        run: docker compose logs homeassistant
