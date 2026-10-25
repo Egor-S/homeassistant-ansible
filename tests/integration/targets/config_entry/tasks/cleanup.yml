@@ -1,0 +1,10 @@
+---
+- name: Remove test entries
+  egors.homeassistant.config_entry:
+    domain: "{{ item.0 }}"
+    title: "{{ item.1 }}"
+    state: absent
+  loop:
+    - [local_calendar, ansible_test_calendar]
+    - [local_calendar, ansible_test_calendar_name]
+    - [template, ansible_test_template]

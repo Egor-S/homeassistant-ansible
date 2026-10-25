@@ -1,0 +1,118 @@
+---
+# Only integrations that need no network or hardware: local_calendar and template helpers.
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Remove leftovers of earlier runs
+      ansible.builtin.include_tasks: cleanup.yml
+
+    - name: Add a calendar in check mode
+      egors.homeassistant.config_entry: &calendar
+        domain: local_calendar
+        title: ansible_test_calendar
+        steps:
+          - calendar_name: ansible_test_calendar_name
+      check_mode: true
+      register: calendar_check
+
+    - name: Add a calendar (its own title differs, the module renames it)
+      egors.homeassistant.config_entry: *calendar
+      register: calendar
+
+    - name: Add it again
+      egors.homeassistant.config_entry: *calendar
+      register: calendar_again
+
+    - name: List it
+      egors.homeassistant.config_entry_info:
+        domain: local_calendar
+        title: ANSIBLE_TEST_CALENDAR
+      register: calendar_info
+
+    - name: Too few steps
+      egors.homeassistant.config_entry:
+        domain: local_calendar
+        title: ansible_test_calendar_2
+      register: too_few
+      ignore_errors: true
+
+    - name: A single-instance integration that is already set up
+      egors.homeassistant.config_entry:
+        domain: sun
+        title: ansible_test_sun
+      register: single
+
+    - name: Unknown integration
+      egors.homeassistant.config_entry:
+        domain: ansible_test_nope
+        title: x
+      register: unknown
+      ignore_errors: true
+
+    - name: Calendar behaved
+      ansible.builtin.assert:
+        that:
+          - calendar_check is changed
+          - calendar_check.entry == {}
+          - calendar is changed
+          - calendar.entry.title == 'ansible_test_calendar'
+          - calendar.entry.state == 'loaded'
+          - calendar_again is not changed
+          - calendar_again.entry.entry_id == calendar.entry.entry_id
+          - calendar_info.entries | length == 1
+          - too_few is failed
+          - "'calendar_name' in too_few.msg"
+          - single is not changed
+          - single.warnings | length == 1
+          - unknown is failed
+
+    - name: A template sensor through a menu
+      egors.homeassistant.config_entry: &template
+        domain: template
+        title: ansible_test_template
+        steps:
+          - next_step_id: sensor
+          - name: ansible_test_template
+            state: !unsafe "{{ 1 + 1 }}"
+      register: template
+
+    - name: Again
+      egors.homeassistant.config_entry: *template
+      register: template_again
+
+    - name: Wrong menu option
+      egors.homeassistant.config_entry:
+        domain: template
+        title: ansible_test_template_2
+        steps:
+          - next_step_id: no_such_type
+      register: bad_menu
+      ignore_errors: true
+
+    - name: Remove the calendar
+      egors.homeassistant.config_entry: &remove
+        domain: local_calendar
+        title: ansible_test_calendar
+        state: absent
+      register: removed
+
+    - name: Remove it again
+      egors.homeassistant.config_entry: *remove
+      register: removed_again
+
+    - name: Template and remove behaved
+      ansible.builtin.assert:
+        that:
+          - template is changed
+          - template.entry.domain == 'template'
+          - template_again is not changed
+          - bad_menu is failed
+          - removed is changed
+          - removed.require_restart == false
+          - removed_again is not changed
+
+  always:
+    - name: Clean up
+      ansible.builtin.include_tasks: cleanup.yml

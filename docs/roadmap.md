@@ -41,7 +41,8 @@ The objects come from integrations or users; modules update them but don't creat
 
 | # | Module(s) | API | Notes |
 |---|---|---|---|
-| 12 | `integration` (config entries), options | REST `/api/config/config_entries/flow`, `.../options/flow` | Flows are multi-step and differ per integration; some need OAuth or discovery. Spike: which integrations can be driven by a list of step inputs, and how to make that idempotent (match on domain + title/unique ID). |
+| 12a | `config_entry`, `config_entry_info` | REST `/api/config/config_entries/flow` | Spike done (api-notes): flows are driven by a list of step inputs; entries are matched by domain + title, since their data can't be read. No OAuth/discovery. |
+| 12b | Config entry options | REST `.../options/flow` | The first options form holds the current values, so options can be compared step by step. |
 
 ## Not planned
 
@@ -66,3 +67,4 @@ setup (interactive). Revisit on request.
 | 11a: `backup_config`, `analytics` | done | #14 |
 | 11b: `logger_level`, `network` | done | #15 |
 | 11c: `exposed_entity`, `expose_new_entities`, `area_order`, `floor_order`, `energy_prefs` | done | #16 |
+| 12a | done | #17 |
