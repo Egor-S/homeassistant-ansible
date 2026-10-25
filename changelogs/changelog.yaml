@@ -1,0 +1,163 @@
+ancestor: null
+releases:
+  0.1.0:
+    changes:
+      release_summary: Initial MVP release of the egors.homeassistant collection.
+    fragments:
+    - 0.1.0-initial.yml
+    modules:
+    - description: Manage what Home Assistant shares with its analytics.
+      name: analytics
+      namespace: ''
+    - description: Manage areas in the Home Assistant area registry.
+      name: area
+      namespace: ''
+    - description: List areas of the Home Assistant area registry.
+      name: area_info
+      namespace: ''
+    - description: Set the order of Home Assistant areas.
+      name: area_order
+      namespace: ''
+    - description: Manage Home Assistant automations created in the UI.
+      name: automation
+      namespace: ''
+    - description: Manage the automatic backup settings of Home Assistant.
+      name: backup_config
+      namespace: ''
+    - description: Manage Home Assistant categories.
+      name: category
+      namespace: ''
+    - description: List Home Assistant categories of one scope.
+      name: category_info
+      namespace: ''
+    - description: Add and remove Home Assistant integrations (config entries).
+      name: config_entry
+      namespace: ''
+    - description: List Home Assistant config entries.
+      name: config_entry_info
+      namespace: ''
+    - description: Set the options of a Home Assistant config entry.
+      name: config_entry_options
+      namespace: ''
+    - description: Manage the Home Assistant core configuration.
+      name: core_config
+      namespace: ''
+    - description: Manage Home Assistant counter helpers.
+      name: counter
+      namespace: ''
+    - description: Manage Home Assistant dashboards and their content.
+      name: dashboard
+      namespace: ''
+    - description: Manage Home Assistant dashboard resources.
+      name: dashboard_resource
+      namespace: ''
+    - description: Manage the settings of a Home Assistant device.
+      name: device
+      namespace: ''
+    - description: List devices of the Home Assistant device registry.
+      name: device_info
+      namespace: ''
+    - description: Configure the Home Assistant energy dashboard.
+      name: energy_prefs
+      namespace: ''
+    - description: Manage the settings of a Home Assistant entity.
+      name: entity
+      namespace: ''
+    - description: List entities of the Home Assistant entity registry.
+      name: entity_info
+      namespace: ''
+    - description: Choose whether new entities are exposed to voice assistants.
+      name: expose_new_entities
+      namespace: ''
+    - description: Expose Home Assistant entities to voice assistants.
+      name: exposed_entity
+      namespace: ''
+    - description: Manage floors in the Home Assistant floor registry.
+      name: floor
+      namespace: ''
+    - description: List floors of the Home Assistant floor registry.
+      name: floor_info
+      namespace: ''
+    - description: Set the order of Home Assistant floors.
+      name: floor_order
+      namespace: ''
+    - description: List Home Assistant helpers of one type.
+      name: helper_info
+      namespace: ''
+    - description: Manage the Home Assistant HTTP server configuration.
+      name: http_config
+      namespace: ''
+    - description: Manage Home Assistant toggle (input\_boolean) helpers.
+      name: input_boolean
+      namespace: ''
+    - description: Manage Home Assistant button (input\_button) helpers.
+      name: input_button
+      namespace: ''
+    - description: Manage Home Assistant date and/or time (input\_datetime) helpers.
+      name: input_datetime
+      namespace: ''
+    - description: Manage Home Assistant number (input\_number) helpers.
+      name: input_number
+      namespace: ''
+    - description: Manage Home Assistant dropdown (input\_select) helpers.
+      name: input_select
+      namespace: ''
+    - description: Manage Home Assistant text (input\_text) helpers.
+      name: input_text
+      namespace: ''
+    - description: Manage labels in the Home Assistant label registry.
+      name: label
+      namespace: ''
+    - description: List labels of the Home Assistant label registry.
+      name: label_info
+      namespace: ''
+    - description: Set the log level of a Home Assistant integration.
+      name: logger_level
+      namespace: ''
+    - description: Log in to Home Assistant and get a short\-lived token for the other
+        modules.
+      name: login
+      namespace: ''
+    - description: Choose the network adapters Home Assistant uses.
+      name: network
+      namespace: ''
+    - description: Onboard a fresh Home Assistant instance.
+      name: onboarding
+      namespace: ''
+    - description: Manage Home Assistant people.
+      name: person
+      namespace: ''
+    - description: List Home Assistant people.
+      name: person_info
+      namespace: ''
+    - description: Manage Home Assistant scenes created in the UI.
+      name: scene
+      namespace: ''
+    - description: Manage Home Assistant weekly schedule helpers.
+      name: schedule
+      namespace: ''
+    - description: Manage Home Assistant scripts created in the UI.
+      name: script
+      namespace: ''
+    - description: Manage Home Assistant tags (NFC tags and QR codes).
+      name: tag
+      namespace: ''
+    - description: List Home Assistant tags.
+      name: tag_info
+      namespace: ''
+    - description: Manage Home Assistant timer helpers.
+      name: timer
+      namespace: ''
+    - description: Manage Home Assistant users.
+      name: user
+      namespace: ''
+    - description: List Home Assistant users.
+      name: user_info
+      namespace: ''
+    - description: Manage Home Assistant zones.
+      name: zone
+      namespace: ''
+    - description: List Home Assistant zones.
+      name: zone_info
+      namespace: ''
+    release_date: '2026-10-25'
