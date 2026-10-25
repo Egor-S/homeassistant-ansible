@@ -37,6 +37,87 @@ All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
 `onboarding` and `login` take no token and are therefore not in the group.
 
+## Coverage
+
+What Home Assistant lets you configure, and what this collection covers. Checked
+against the source of HA **2026.10.4** (the pinned image). Only ✅ rows are tested
+against a live instance. 🟡 rows only say an API exists; they don't promise a module.
+
+- ✅ supported by a module
+- 🟡 API exists, no module yet
+- ❌ YAML-only or no API, so out of scope for now (see [docs/design.md](docs/design.md))
+
+### Bootstrap and core
+
+| Setting | Status | API / notes |
+|---|---|---|
+| Onboarding (owner user, first-run steps) | ✅ `onboarding` | REST `/api/onboarding/*`. Restoring a backup or logging in to Cloud during onboarding is not supported. |
+| Access token for a run | ✅ `login` | `/auth/login_flow`, WS `auth/long_lived_access_token`. No MFA. |
+| Name, location, elevation, radius, units, time zone, currency, country, language, internal/external URL | ✅ `core_config` | WS `config/core/update`. `country` and `currency` can't be cleared. |
+| HTTP server: port, bind address, SSL, reverse proxy, IP bans, CORS | ✅ `http_config` | WS `http/config*` (trial, then promote) |
+| `customize`, `packages`, `allowlist_external_dirs`/`_urls`, `media_dirs`, `auth_providers`, `auth_mfa_modules`, `debug`, `webrtc` | ❌ | `homeassistant:` block in `configuration.yaml` |
+| Network adapters | 🟡 | WS `network/configure` |
+| Analytics preferences | 🟡 | WS `analytics/preferences`. `onboarding` leaves analytics off. |
+| Labs (preview features) | 🟡 | WS `labs/update` |
+
+### Registries
+
+| Setting | Status | API / notes |
+|---|---|---|
+| Areas | ✅ `area`, `area_info` | WS `config/area_registry/*` |
+| Floors | ✅ `floor`, `floor_info` | WS `config/floor_registry/*` |
+| Area / floor ordering | 🟡 | WS `config/{area,floor}_registry/reorder` |
+| Labels | 🟡 | WS `config/label_registry/*` (CRUD) |
+| Categories | 🟡 | WS `config/category_registry/*` (CRUD) |
+| Devices: area, name, labels, disable | 🟡 | WS `config/device_registry/update`. Devices come from integrations; no create. |
+| Entities: name, icon, area, labels, disable/hide, entity ID | 🟡 | WS `config/entity_registry/update`, `remove`. Created by integrations. |
+| Entities exposed to voice assistants | 🟡 | WS `homeassistant/expose_entity`, `expose_new_entities/set` |
+
+### Users and people
+
+| Setting | Status | API / notes |
+|---|---|---|
+| Users (create, groups such as admin, local-only, active, delete) | 🟡 | WS `config/auth/*`, `config/auth_provider/homeassistant/*` (credentials, passwords) |
+| People | 🟡 | WS `person/{list,create,update,delete}` |
+| Zones | 🟡 | WS `zone/{list,create,update,delete}`. The home zone comes from `core_config`. |
+| Tags | 🟡 | WS `tag/{list,create,update,delete}` |
+| MFA for a user | ❌ | Interactive (`auth/setup_mfa`) |
+
+### Helpers
+
+| Setting | Status | API / notes |
+|---|---|---|
+| `input_boolean`, `input_number`, `input_text`, `input_select`, `input_datetime`, `input_button`, `counter`, `timer`, `schedule` | 🟡 | WS `<domain>/{list,create,update,delete}` (storage collections) |
+| Template, group, threshold, and other config-flow helpers | 🟡 | Config entry flows, see Integrations |
+
+### Integrations
+
+| Setting | Status | API / notes |
+|---|---|---|
+| Add an integration (config entry) | 🟡 | REST `/api/config/config_entries/flow`. Flows are multi-step and differ per integration, so they're harder to make declarative. |
+| Integration options | 🟡 | REST `/api/config/config_entries/options/flow` |
+| Enable/disable, rename, delete entries | 🟡 | WS `config_entries/update`, `config_entries/disable`, REST `DELETE .../entry/{id}` |
+| Application credentials (OAuth client IDs) | 🟡 | WS `application_credentials/*` |
+| Integrations set up only in YAML (`template:`, `mqtt:` entities, `command_line`, ...) | ❌ | `configuration.yaml` |
+
+### Automations, dashboards and the rest
+
+| Setting | Status | API / notes |
+|---|---|---|
+| Automations, scripts, scenes | 🟡 | REST `/api/config/{automation,script,scene}/config/{id}`. Writes `automations.yaml`, `scripts.yaml` and `scenes.yaml` on the HA host. |
+| Blueprints | 🟡 | WS `blueprint/{import,save,delete}` |
+| Dashboards | 🟡 | WS `lovelace/dashboards/{list,create,update,delete}`, `lovelace/config/save` (content) |
+| Dashboard resources (custom cards) | 🟡 | WS `lovelace/resources/*` (in storage mode) |
+| Voice assistant pipelines | 🟡 | WS `assist_pipeline/pipeline/*` |
+| Backup schedule and retention | 🟡 | WS `backup/config/update` |
+| Energy dashboard | 🟡 | WS `energy/save_prefs` |
+| Log level per integration | 🟡 | WS `logger/integration_log_level` (`persistence: permanent`) |
+| Default log level, log filters | ❌ | `logger:` in YAML |
+| Recorder: database URL, retention, excludes | ❌ | `recorder:` in YAML. Only `recorder/info` is readable. |
+
+Runtime commands that aren't configuration (state, services, events, history, logbook,
+traces, statistics, cameras, media, previews, templates) are out of scope.
+
 ## Authentication
 
 No token is ever written to disk. Keep secrets in [Ansible Vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html)
