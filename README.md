@@ -63,6 +63,7 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.energy_prefs` | Energy dashboard sources and devices |
 | `egors.homeassistant.config_entry` | Add an integration or UI helper by running its config flow; remove it |
 | `egors.homeassistant.config_entry_info` | List config entries |
+| `egors.homeassistant.config_entry_options` | Set the options of a config entry through its options flow |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -126,7 +127,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 | Setting | Status | API / notes |
 |---|---|---|
 | Add an integration (config entry) | ✅ `config_entry`, `config_entry_info` | REST `/api/config/config_entries/flow`, step by step. Matched by domain + title; the entry's settings can't be read back, so existing entries aren't reconfigured. No OAuth or discovery flows. |
-| Integration options | 🟡 | REST `/api/config/config_entries/options/flow` |
+| Integration options | ✅ `config_entry_options` | REST `/api/config/config_entries/options/flow`. Compared with the current values the forms show. |
 | Enable/disable, rename, delete entries | 🟡 | WS `config_entries/update`, `config_entries/disable`, REST `DELETE .../entry/{id}` |
 | Application credentials (OAuth client IDs) | 🟡 | WS `application_credentials/*` |
 | Integrations set up only in YAML (`template:`, `mqtt:` entities, `command_line`, ...) | ❌ | `configuration.yaml` |

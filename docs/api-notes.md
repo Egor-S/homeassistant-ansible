@@ -417,6 +417,8 @@ unique** and not normalised (`" probe"` next to `Probe`). `icon: null` clears. U
   `{"require_restart": false}`; unknown -> `404 "Invalid entry specified"`.
 - Options flows: `POST /api/config/config_entries/options/flow` (`handler` = entry ID); the first form carries the
   **current values as `suggested_value`**, so options can be compared before submitting.
+  **Submitting a form replaces the options**: a template sensor's options form submitted with only `state` loses its
+  `unit_of_measurement` and `device_class`. Options are only stored when the flow finishes (`create_entry`).
 
 ## HTTP config (`http/config*`, admin only)
 

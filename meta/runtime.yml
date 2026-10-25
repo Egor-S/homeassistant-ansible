@@ -50,3 +50,4 @@ action_groups:
     - energy_prefs
     - config_entry
     - config_entry_info
+    - config_entry_options

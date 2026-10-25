@@ -76,3 +76,66 @@ def _abort(rest, flow_path):
 
 def _message(payload):
     return payload.get("message", payload) if isinstance(payload, dict) else payload
+
+
+def current_values(step):
+    """Current values a form shows: ``suggested_value`` if set, else ``default``. Fields without one are left out."""
+    values = {}
+    for field in step.get("data_schema") or []:
+        suggested = (field.get("description") or {}).get("suggested_value")
+        value = suggested if suggested is not None else field.get("default")
+        if value is not None:
+            values[field["name"]] = value
+    return values
+
+
+def run_options_flow(rest, path, entry_id, steps, check_mode):
+    """Walk an options flow, comparing each step's input with the values the form shows.
+
+    Each form is submitted with its current values plus the input, since submitting replaces the options.
+    If no input differs by the last given step, or in check mode, the flow is cancelled instead of finished.
+    Returns the names of the changed fields as ``step_id.field``. Raises ``FlowError`` (the flow is cancelled).
+    """
+    status, step = rest(path, "POST", {"handler": entry_id})
+    if status != 200 or not isinstance(step, dict):
+        raise FlowError("starting the options flow failed with HTTP %s: %s" % (status, _message(step)))
+    changed = []
+    remaining = list(steps)
+    while True:
+        kind = step.get("type")
+        if kind in ("create_entry", "abort"):
+            if kind == "abort":
+                raise FlowError("the options flow aborted: %s" % step.get("reason"))
+            return changed
+        flow_path = "%s/%s" % (path, step["flow_id"])
+        if kind not in ("form", "menu"):
+            _abort(rest, flow_path)
+            raise FlowError("step %r of type %s is not supported" % (step.get("step_id"), kind))
+        if step.get("errors"):
+            _abort(rest, flow_path)
+            raise FlowError("Home Assistant rejected the input for %s: %s" % (describe_step(step), step["errors"]))
+        if not remaining:
+            _abort(rest, flow_path)
+            if changed:
+                raise FlowError("the options flow asks for %s, but steps has no more entries" % describe_step(step))
+            return changed
+        user_input = remaining.pop(0)
+        if kind == "form":
+            names = [f.get("name") for f in step.get("data_schema") or []]
+            unknown = sorted(k for k in user_input if k not in names)
+            if unknown:
+                _abort(rest, flow_path)
+                raise FlowError("%s has no fields %s" % (describe_step(step), ", ".join(unknown)))
+            current = current_values(step)
+            changed += ["%s.%s" % (step.get("step_id"), k) for k, v in sorted(user_input.items())
+                        if current.get(k) != v]
+            payload = dict(current, **user_input)
+        else:
+            payload = user_input
+        if not remaining and (check_mode or not changed):
+            _abort(rest, flow_path)
+            return changed
+        status, step = rest(flow_path, "POST", payload)
+        if status != 200 or not isinstance(step, dict):
+            _abort(rest, flow_path)
+            raise FlowError("step failed with HTTP %s: %s" % (status, _message(step)))
