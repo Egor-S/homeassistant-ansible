@@ -28,3 +28,5 @@ action_groups:
     - tag_info
     - entity
     - entity_info
+    - device
+    - device_info

@@ -1,0 +1,111 @@
+---
+# Onboarding sets up the sun integration, whose device ("Sun") is always there.
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Create an area and a label for the device
+      egors.homeassistant.area:
+        name: ansible_test_device_area
+
+    - name: Create a label
+      egors.homeassistant.label:
+        name: ansible_test_device_label
+
+    - name: Find the sun device
+      egors.homeassistant.device_info:
+        name: sun
+      register: sun
+
+    - name: Unknown device
+      egors.homeassistant.device:
+        name: ansible_test_no_device
+        area_id: ansible_test_device_area
+      register: unknown
+      ignore_errors: true
+
+    - name: Configure it in check mode
+      egors.homeassistant.device: &settings
+        name: Sun
+        name_by_user: ansible_test_sky
+        area_id: ansible_test_device_area
+        labels: [ansible_test_device_label]
+      check_mode: true
+      diff: true
+      register: set_check
+
+    - name: Configure it
+      egors.homeassistant.device: *settings
+      register: set
+
+    - name: Configure it again, found by its new name
+      egors.homeassistant.device:
+        name: ansible_test_sky
+        area_id: ansible_test_device_area
+        labels: [ansible_test_device_label]
+      register: set_again
+
+    - name: Filter by area and label
+      egors.homeassistant.device_info:
+        area_id: ansible_test_device_area
+        label: ansible_test_device_label
+      register: by_area
+
+    - name: Disable it
+      egors.homeassistant.device: &disable
+        device_id: "{{ sun.devices[0].device_id }}"
+        disabled: true
+      register: disabled
+
+    - name: Disable again
+      egors.homeassistant.device: *disable
+      register: disabled_again
+
+    - name: Device behaved
+      ansible.builtin.assert:
+        that:
+          - sun.devices | length == 1
+          - sun.devices[0].entry_type == 'service'
+          - unknown is failed
+          - "'no device named' in unknown.msg"
+          - set_check is changed
+          - set_check.diff.before.area_id is none
+          - set_check.device.name_by_user == 'ansible_test_sky'
+          - set is changed
+          - set.device.name == 'Sun'
+          - set.device.name_by_user == 'ansible_test_sky'
+          - set.device.area_id == 'ansible_test_device_area'
+          - set.device.labels == ['ansible_test_device_label']
+          - set_again is not changed
+          - by_area.devices | map(attribute='device_id') | list == [sun.devices[0].device_id]
+          - disabled is changed
+          - disabled.device.disabled_by == 'user'
+          - disabled_again is not changed
+
+  always:
+    - name: Restore the sun device
+      egors.homeassistant.device:
+        name: Sun
+        name_by_user: ""
+        area_id: ""
+        labels: []
+        disabled: false
+      register: restored
+
+    - name: Delete the test area
+      egors.homeassistant.area:
+        name: ansible_test_device_area
+        state: absent
+
+    - name: Delete the test label
+      egors.homeassistant.label:
+        name: ansible_test_device_label
+        state: absent
+
+- name: Restore behaved
+  ansible.builtin.assert:
+    that:
+      - restored is changed
+      - restored.device.name_by_user is none
+      - restored.device.disabled_by is none

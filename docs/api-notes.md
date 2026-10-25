@@ -308,6 +308,15 @@ names not unique (`P`, `P` -> `p`, `p_2`), unknown id -> `not_found`. Probed for
 - `area_id` on an entity named after its device (`has_entity_name` and `name: null`) ->
   `invalid_info "An entity without a name of its own cannot have an area of its own..."`.
 
+## Device registry (`config/device_registry/*`)
+
+- `list` -> entries with `id`, `name` (from the integration), `name_by_user`, `area_id`, `labels`, `disabled_by`,
+  `identifiers` (pairs), `config_entries`, `manufacturer`, `model`, `entry_type` (`service` or null), `via_device_id`.
+  A fresh onboarded HA has three service devices: Sun, Backup, Google Translate.
+- `update` (`device_id` + `area_id`, `name_by_user`, `labels`, `disabled_by` `"user"`/`null`) returns the device itself.
+  `name_by_user: ""` is stored as `""`; `null` clears. **Unknown `area_id` is accepted and stored**; unknown labels
+  are dropped. Unknown device -> `not_found "Device not found"`.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.
