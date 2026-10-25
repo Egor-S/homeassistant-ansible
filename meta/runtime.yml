@@ -41,3 +41,5 @@ action_groups:
     - dashboard_resource
     - backup_config
     - analytics
+    - logger_level
+    - network

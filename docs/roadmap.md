@@ -64,3 +64,4 @@ setup (interactive). Revisit on request.
 | 9 | done | #12 |
 | 10 | done | #13 |
 | 11a: `backup_config`, `analytics` | done | #14 |
+| 11b: `logger_level`, `network` | done | #15 |
