@@ -95,8 +95,13 @@ assignments), hence opt-in.
 
 ## Project
 
-- Namespace/name: `egors.homeassistant`. Installed from git during the MVP;
-  Galaxy publish workflow later.
+- Namespace/name: `egors.homeassistant`. Installed from git or from the tarball
+  attached to a GitHub release.
+- Releasing: bump `version` in `galaxy.yml`, run `antsibull-changelog release`
+  from an `ansible_collections/egors/homeassistant` tree (it needs `ansible-doc`
+  to find new modules), merge, then push a tag equal to the version.
+  `release.yml` reruns CI, builds the collection and creates the GitHub release;
+  it also publishes to Galaxy once a `GALAXY_API_KEY` secret is set.
 - semver from `0.1.0`; `antsibull-changelog` fragments from the first commit.
 - License: GPL-3.0-or-later.
 

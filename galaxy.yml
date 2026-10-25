@@ -22,6 +22,7 @@ build_ignore:
   - .github
   - .gitignore
   - tests/output
+  - tests/integration/integration_config.yml
   - docs
   - scripts
   - docker-compose.yml
@@ -30,3 +31,5 @@ build_ignore:
   - "*.token"
   - .token
   - __pycache__
+  - changelogs/.plugin-cache.yaml
+  - changelogs/fragments/.keep

@@ -1,0 +1,57 @@
+---
+name: Release
+
+# Push a tag equal to the version in galaxy.yml (e.g. 0.1.0) after running
+# `antsibull-changelog release` on main.
+on:
+  push:
+    tags: ["[0-9]+.[0-9]+.[0-9]+*"]
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      # Galaxy publishing is skipped until this secret is set.
+      GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Create dev venv
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv -r requirements-dev.txt
+
+      - name: Check tag matches galaxy.yml
+        run: |
+          version="$(.venv/bin/python -c 'import yaml; print(yaml.safe_load(open("galaxy.yml"))["version"])')"
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match galaxy.yml version $version"
+            exit 1
+          fi
+
+      - name: Build collection
+        run: .venv/bin/ansible-galaxy collection build --output-path dist
+
+      - name: Release notes
+        run: >-
+          .venv/bin/antsibull-changelog generate "$GITHUB_REF_NAME"
+          --only-latest --output-format md --output dist/notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" dist/*.tar.gz
+          --title "$GITHUB_REF_NAME" --notes-file dist/notes.md --verify-tag
+
+      - name: Publish to Galaxy
+        if: env.GALAXY_API_KEY != ''
+        run: .venv/bin/ansible-galaxy collection publish dist/*.tar.gz --api-key "$GALAXY_API_KEY"
