@@ -1,0 +1,20 @@
+---
+- name: Onboard Home Assistant (or read back the token of an onboarded one)
+  egors.homeassistant.onboarding:
+    url: "{{ ha_url }}"
+    name: "{{ ha_owner_name }}"
+    username: "{{ ha_owner_username }}"
+    password: "{{ ha_owner_password }}"
+    token_path: "{{ ha_token_path }}"
+  register: setup_ha_onboarding
+
+- name: Make sure a token is available
+  ansible.builtin.assert:
+    that:
+      - setup_ha_onboarding.token is defined
+    fail_msg: "No token: HA is onboarded but {{ ha_token_path }} is missing. Re-run without HA_KEEP=1."
+
+- name: Expose connection facts
+  ansible.builtin.set_fact:
+    ha_url: "{{ ha_url }}"
+    ha_token: "{{ setup_ha_onboarding.token }}"

@@ -2,7 +2,6 @@
 requires_ansible: '>=2.20.0'
 action_groups:
   all:
-    - onboarding
     - core_config
     - area
     - area_info

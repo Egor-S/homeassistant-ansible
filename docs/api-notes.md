@@ -198,3 +198,14 @@ Integration tests that create e.g. "Kitchen" will see "already exists"; use uniq
 ## Misc
 - `refresh_token` grant with wrong `client_id` -> `400 {"error":"invalid_request"}`.
 - Unauthenticated `POST /auth/token` before onboarding works the same; just returns 400 for bad code.
+
+## Findings while implementing `onboarding`
+
+- The `integration` onboarding step **rejects a long-lived token** (`403 Credentials
+  for user not available`); use the short-lived access token from the `/auth/token`
+  code exchange for the remaining steps.
+- If a run is interrupted after the `user` step, the remaining steps are completed by
+  logging in as the owner via `/auth/login_flow` (username/password), so `token_path`
+  is not required for recovery.
+- A token read back from `token_path` is validated with `GET /api/config` (also yields
+  the HA version).
