@@ -34,3 +34,6 @@ action_groups:
     - category_info
     - user
     - user_info
+    - automation
+    - script
+    - scene

@@ -1,0 +1,176 @@
+---
+# automation, script and scene share module_utils/config_editor.py.
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  vars:
+    automation_config:
+      alias: ansible_test_automation
+      description: Created by the integration tests
+      triggers:
+        - trigger: time
+          at: "03:00:00"
+      actions:
+        - action: input_boolean.toggle
+          target:
+            entity_id: input_boolean.ansible_test_editor
+      mode: single
+  block:
+    - name: Remove leftovers of earlier runs
+      ansible.builtin.include_tasks: cleanup.yml
+
+    - name: Create a toggle for the automation and the scene
+      egors.homeassistant.input_boolean:
+        name: ansible_test_editor
+
+    # automation
+    - name: Create an automation in check mode
+      egors.homeassistant.automation: &automation
+        automation_id: ansible_test_automation
+        config: "{{ automation_config }}"
+      check_mode: true
+      diff: true
+      register: automation_check
+
+    - name: Create an automation
+      egors.homeassistant.automation: *automation
+      register: automation_created
+
+    - name: Create it again
+      egors.homeassistant.automation: *automation
+      register: automation_again
+
+    - name: Wait for the automation entity after the reload
+      egors.homeassistant.entity_info:
+        platform: automation
+      register: automation_entities
+      until: automation_entities.entities | selectattr('unique_id', 'eq', 'ansible_test_automation') | list | length == 1
+      retries: 20
+      delay: 1
+
+    - name: Replace it (the description goes away)
+      egors.homeassistant.automation:
+        automation_id: ansible_test_automation
+        config: "{{ automation_config | ansible.builtin.combine({'mode': 'restart'}) | ansible.builtin.dict2items | rejectattr('key', 'eq', 'description') | ansible.builtin.items2dict }}"
+      diff: true
+      register: automation_replaced
+
+    - name: An invalid automation
+      egors.homeassistant.automation:
+        automation_id: ansible_test_automation
+        config:
+          alias: broken
+          triggers:
+            - trigger: no_such_trigger
+          actions: []
+      register: automation_invalid
+      ignore_errors: true
+
+    - name: Read it back with check mode
+      egors.homeassistant.automation:
+        automation_id: ansible_test_automation
+        config: "{{ automation_replaced.config }}"
+      check_mode: true
+      register: automation_kept
+
+    - name: Automation behaved
+      ansible.builtin.assert:
+        that:
+          - automation_check is changed
+          - automation_check.diff.before == {}
+          - automation_created is changed
+          - automation_created.config.alias == 'ansible_test_automation'
+          - "'id' not in automation_created.config"
+          - automation_again is not changed
+          - automation_replaced is changed
+          - automation_replaced.diff.before.description == 'Created by the integration tests'
+          - "'description' not in automation_replaced.config"
+          - automation_invalid is failed
+          - "'Message malformed' in automation_invalid.msg"
+          - automation_kept is not changed
+
+    # script
+    - name: Create a script
+      egors.homeassistant.script: &script
+        script_id: ansible_test_script
+        config:
+          alias: ansible_test_script
+          sequence:
+            - action: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.ansible_test_editor
+          mode: single
+      register: script_created
+
+    - name: Create it again
+      egors.homeassistant.script: *script
+      register: script_again
+
+    - name: A script ID that is not a slug
+      egors.homeassistant.script:
+        script_id: Not A Slug
+        config:
+          sequence: []
+      register: script_bad_id
+      ignore_errors: true
+
+    # scene
+    - name: Create a scene
+      egors.homeassistant.scene: &scene
+        scene_id: ansible_test_scene
+        config:
+          name: ansible_test_scene
+          entities:
+            input_boolean.ansible_test_editor: "on"
+      register: scene_created
+
+    - name: Create it again
+      egors.homeassistant.scene: *scene
+      register: scene_again
+
+    - name: Script and scene behaved
+      ansible.builtin.assert:
+        that:
+          - script_created is changed
+          - script_again is not changed
+          - script_bad_id is failed
+          - script_bad_id.status == 400
+          - scene_created is changed
+          - scene_again is not changed
+
+    # delete, for all three
+    - name: Delete the automation
+      egors.homeassistant.automation: &automation_delete
+        automation_id: ansible_test_automation
+        state: absent
+      register: automation_deleted
+
+    - name: Delete it again
+      egors.homeassistant.automation: *automation_delete
+      register: automation_deleted_again
+
+    - name: Delete the script
+      egors.homeassistant.script:
+        script_id: ansible_test_script
+        state: absent
+      register: script_deleted
+
+    - name: Delete the scene
+      egors.homeassistant.scene:
+        scene_id: ansible_test_scene
+        state: absent
+      register: scene_deleted
+
+    - name: Delete behaved
+      ansible.builtin.assert:
+        that:
+          - automation_deleted is changed
+          - automation_deleted.config == {}
+          - automation_deleted_again is not changed
+          - script_deleted is changed
+          - scene_deleted is changed
+
+  always:
+    - name: Clean up
+      ansible.builtin.include_tasks: cleanup.yml

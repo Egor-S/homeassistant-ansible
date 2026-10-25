@@ -50,6 +50,7 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.category_info` | List categories of one scope |
 | `egors.homeassistant.user` | Manage a single user with username and password (admin, active, local only) |
 | `egors.homeassistant.user_info` | List users |
+| `egors.homeassistant.automation`, `script`, `scene` | Manage a single automation, script or scene of the UI editor (whole config) |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -122,7 +123,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 
 | Setting | Status | API / notes |
 |---|---|---|
-| Automations, scripts, scenes | 🟡 | REST `/api/config/{automation,script,scene}/config/{id}`. Writes `automations.yaml`, `scripts.yaml` and `scenes.yaml` on the HA host. |
+| Automations, scripts, scenes | ✅ `automation`, `script`, `scene` | REST `/api/config/{automation,script,scene}/config/{id}`. Writes `automations.yaml`, `scripts.yaml` and `scenes.yaml` on the HA host. |
 | Blueprints | 🟡 | WS `blueprint/{import,save,delete}` |
 | Dashboards | 🟡 | WS `lovelace/dashboards/{list,create,update,delete}`, `lovelace/config/save` (content) |
 | Dashboard resources (custom cards) | 🟡 | WS `lovelace/resources/*` (in storage mode) |

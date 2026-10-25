@@ -342,6 +342,17 @@ unique** and not normalised (`" probe"` next to `Probe`). `icon: null` clears. U
 - `config/auth/delete` -> `null`; own user -> `no_delete_self`; unknown -> `not_found "User not found"`.
 - A wrong password at `/auth/login_flow` goes through `process_wrong_login` (notification, IP-ban counter).
 
+## Automation, script and scene editor (REST `/api/config/<domain>/config/<id>`)
+
+- The default `configuration.yaml` of the container includes `automations.yaml`, `scripts.yaml`, `scenes.yaml`.
+- `GET` -> the stored item (automations and scenes with `id`), `404 "Resource not found"` if missing.
+- `POST` (whole item) validates (`400 "Message malformed: ..."`, e.g. an unknown trigger), then stores **the posted
+  data, not the validated one** (no defaults added), writes the YAML file and reloads the domain in a background task
+  -> `200 {"result": "ok"}`. The entity (`automation.<slug of alias>`, unique ID = the automation ID) appears
+  shortly after.
+- Keys: automation and scene IDs are any string; script keys must be slugs (`400 "Key malformed: invalid slug ..."`).
+- `DELETE` -> `200`; missing -> `400 "Resource not found"`.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

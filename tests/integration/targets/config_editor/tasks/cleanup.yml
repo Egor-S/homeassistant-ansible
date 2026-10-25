@@ -1,0 +1,20 @@
+---
+- name: Delete the test automation
+  egors.homeassistant.automation:
+    automation_id: ansible_test_automation
+    state: absent
+
+- name: Delete the test script
+  egors.homeassistant.script:
+    script_id: ansible_test_script
+    state: absent
+
+- name: Delete the test scene
+  egors.homeassistant.scene:
+    scene_id: ansible_test_scene
+    state: absent
+
+- name: Delete the test toggle
+  egors.homeassistant.input_boolean:
+    name: ansible_test_editor
+    state: absent
