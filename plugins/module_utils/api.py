@@ -304,6 +304,17 @@ class HomeAssistantModule(AnsibleModule):
         except HomeAssistantError as exc:
             self.fail_json(msg=str(exc))
 
+    def call_optional(self, command, **params):
+        """Like ``call``, but return ``None`` when Home Assistant answers ``not_found``."""
+        try:
+            return self.ws.call(command, **params)
+        except HomeAssistantAPIError as exc:
+            if exc.code == "not_found":
+                return None
+            self.fail_json(msg="Home Assistant rejected %s: %s" % (command, exc.message), error_code=exc.code)
+        except HomeAssistantError as exc:
+            self.fail_json(msg=str(exc))
+
     def exit_json(self, **kwargs):
         if self._ws is not None:
             self._ws.close()

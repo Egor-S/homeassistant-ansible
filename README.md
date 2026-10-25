@@ -42,6 +42,8 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.person_info` | List people |
 | `egors.homeassistant.tag` | Manage a single NFC tag or QR code, by its ID |
 | `egors.homeassistant.tag_info` | List tags |
+| `egors.homeassistant.entity` | Settings of an existing entity: name, icon, area, aliases, labels, entity ID, enabled, hidden |
+| `egors.homeassistant.entity_info` | List entities of the entity registry |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -80,7 +82,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 | Labels | ✅ `label`, `label_info` | WS `config/label_registry/*` |
 | Categories | 🟡 | WS `config/category_registry/*` (CRUD) |
 | Devices: area, name, labels, disable | 🟡 | WS `config/device_registry/update`. Devices come from integrations; no create. |
-| Entities: name, icon, area, labels, disable/hide, entity ID | 🟡 | WS `config/entity_registry/update`, `remove`. Created by integrations. |
+| Entities: name, icon, area, aliases, labels, device class, disable/hide, entity ID | ✅ `entity`, `entity_info` | WS `config/entity_registry/get`, `update`. Created by integrations, so update only. |
 | Entities exposed to voice assistants | 🟡 | WS `homeassistant/expose_entity`, `expose_new_entities/set` |
 
 ### Users and people

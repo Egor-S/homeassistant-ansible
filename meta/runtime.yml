@@ -26,3 +26,5 @@ action_groups:
     - person_info
     - tag
     - tag_info
+    - entity
+    - entity_info

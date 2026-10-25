@@ -295,6 +295,19 @@ names not unique (`P`, `P` -> `p`, `p_2`), unknown id -> `not_found`. Probed for
   created without a name is listed as `"Tag <id>"`. Update merges; `name: null`/`description: null` ->
   `invalid_format`, `description: ""` is stored as `""`. Unknown id -> `not_found`.
 
+## Entity registry (`config/entity_registry/*`)
+
+- `list` has the basic fields only; `get` (`entity_id`) and `get_entries` (`entity_ids` -> `{id: entry|null}`)
+  add `aliases`, `device_class`, `original_device_class`, `original_icon`, `capabilities`. Unknown entity on
+  `get`/`update` -> `not_found "Entity not found"`.
+- `aliases` holds `null` for "the entity's own name" (`COMPUTED_NAME`); the default is `[null]`. Order kept.
+- `update` takes `name`, `icon`, `area_id`, `device_class` (`null` restores the integration's value),
+  `aliases`, `labels` (unknown labels silently dropped), `disabled_by`/`hidden_by` (`"user"` or `null`; `null`
+  also clears `integration`), `new_entity_id`, `categories`, `options`. Returns `{"entity_entry": {...}}`, plus
+  `reload_delay: 30` when an entity is enabled.
+- `area_id` on an entity named after its device (`has_entity_name` and `name: null`) ->
+  `invalid_info "An entity without a name of its own cannot have an area of its own..."`.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

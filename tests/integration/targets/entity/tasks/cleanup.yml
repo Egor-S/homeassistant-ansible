@@ -1,0 +1,15 @@
+---
+- name: Delete the test toggle (its entity goes with it)
+  egors.homeassistant.input_boolean:
+    name: ansible_test_entity
+    state: absent
+
+- name: Delete the test area
+  egors.homeassistant.area:
+    name: ansible_test_entity_area
+    state: absent
+
+- name: Delete the test label
+  egors.homeassistant.label:
+    name: ansible_test_entity_label
+    state: absent

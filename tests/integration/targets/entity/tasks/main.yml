@@ -1,0 +1,152 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Remove leftovers of earlier runs
+      ansible.builtin.include_tasks: cleanup.yml
+
+    # A helper gives a predictable entity with a unique ID.
+    - name: Create a toggle to get an entity
+      egors.homeassistant.input_boolean:
+        name: ansible_test_entity
+
+    - name: Create an area and a label for it
+      egors.homeassistant.area:
+        name: ansible_test_entity_area
+
+    - name: Create a label
+      egors.homeassistant.label:
+        name: ansible_test_entity_label
+
+    - name: Unknown entity
+      egors.homeassistant.entity:
+        entity_id: input_boolean.ansible_test_nope
+        name: x
+      register: unknown
+      ignore_errors: true
+
+    - name: Read it
+      egors.homeassistant.entity_info:
+        entity_id: [input_boolean.ansible_test_entity, input_boolean.ansible_test_nope]
+      register: initial
+
+    - name: Set everything in check mode
+      egors.homeassistant.entity: &settings
+        entity_id: input_boolean.ansible_test_entity
+        name: Ansible entity
+        icon: mdi:flask
+        area_id: ansible_test_entity_area
+        aliases: [zeta, alpha]
+        labels: [ansible_test_entity_label]
+        hidden: true
+      check_mode: true
+      diff: true
+      register: set_check
+
+    - name: Set everything
+      egors.homeassistant.entity: *settings
+      register: set
+
+    - name: Set again
+      egors.homeassistant.entity: *settings
+      register: set_again
+
+    - name: Entity settings behaved
+      ansible.builtin.assert:
+        that:
+          - unknown is failed
+          - "'not in the entity registry' in unknown.msg"
+          - initial.entities | length == 1
+          - initial.entities[0].platform == 'input_boolean'
+          - initial.entities[0].name is none
+          - set_check is changed
+          - set_check.entity.name == 'Ansible entity'
+          - set_check.diff.before.name is none
+          - set is changed
+          - set.entity.name == 'Ansible entity'
+          - set.entity.icon == 'mdi:flask'
+          - set.entity.area_id == 'ansible_test_entity_area'
+          - set.entity.aliases == ['alpha', 'zeta']
+          - set.entity.labels == ['ansible_test_entity_label']
+          - set.entity.hidden_by == 'user'
+          - set_again is not changed
+
+    - name: Filter by area and label
+      egors.homeassistant.entity_info:
+        area_id: ansible_test_entity_area
+        label: ansible_test_entity_label
+      register: by_area
+
+    - name: Unknown label
+      egors.homeassistant.entity:
+        entity_id: input_boolean.ansible_test_entity
+        labels: [ansible_test_entity_label, ansible_test_no_label]
+      register: bad_label
+
+    - name: Rename the entity
+      egors.homeassistant.entity: &rename
+        entity_id: input_boolean.ansible_test_entity
+        new_entity_id: input_boolean.ansible_test_renamed
+      register: renamed
+
+    - name: Rename again (the old ID is gone)
+      egors.homeassistant.entity: *rename
+      register: renamed_again
+
+    - name: Disable it
+      egors.homeassistant.entity: &disable
+        entity_id: input_boolean.ansible_test_renamed
+        disabled: true
+      register: disabled
+
+    - name: Disable again
+      egors.homeassistant.entity: *disable
+      register: disabled_again
+
+    - name: Restore the defaults
+      egors.homeassistant.entity: &reset
+        entity_id: input_boolean.ansible_test_renamed
+        new_entity_id: input_boolean.ansible_test_entity
+        name: ""
+        icon: ""
+        area_id: ""
+        aliases: []
+        labels: []
+        hidden: false
+        disabled: false
+      register: reset
+
+    - name: Restore again
+      egors.homeassistant.entity: *reset
+      register: reset_again
+
+    - name: Rename, disable and reset behaved
+      ansible.builtin.assert:
+        that:
+          - by_area.entities | map(attribute='entity_id') | list == ['input_boolean.ansible_test_entity']
+          - bad_label is changed
+          - bad_label.warnings | length == 1
+          - bad_label.entity.labels == ['ansible_test_entity_label']
+          - renamed is changed
+          - renamed.entity.entity_id == 'input_boolean.ansible_test_renamed'
+          - renamed.entity.name == 'Ansible entity'
+          - renamed_again is not changed
+          - disabled is changed
+          - disabled.entity.disabled_by == 'user'
+          - disabled_again is not changed
+          - reset is changed
+          - reset.entity.entity_id == 'input_boolean.ansible_test_entity'
+          - reset.entity.name is none
+          - reset.entity.icon is none
+          - reset.entity.area_id is none
+          - reset.entity.aliases == []
+          - reset.entity.labels == []
+          - reset.entity.hidden_by is none
+          - reset.entity.disabled_by is none
+          - reset_again is not changed
+
+  always:
+    - name: Clean up
+      ansible.builtin.include_tasks: cleanup.yml
