@@ -283,6 +283,18 @@ names not unique (`P`, `P` -> `p`, `p_2`), unknown id -> `not_found`. Probed for
   `"H:MM:SS"` (`"0:05:00"`, `"0:01:30"`); `schedule` times `"7:00"` become `"07:00:00"`, and every weekday is
   present (`[]` when empty); `input_datetime.initial` is stored verbatim (`"7:00"`).
 
+## People (`person/*`) and tags (`tag/*`)
+
+- `person/list` -> `{"storage": [...], "config": [...]}` (YAML people under `config`). Entry:
+  `{"id","name","user_id","device_trackers":[],"picture"}` (`user_id`/`picture` absent until set).
+  Update merges; `picture: null` and `user_id: null` clear. Names not unique (`probe_2`).
+  `user_id` of an unknown user -> `invalid_format "User does not exist"`; of a user linked to another person ->
+  `"User already taken"`. The owner gets a person at onboarding.
+- `tag/create` needs a `tag_id` in practice (without one -> `unknown_error`); duplicate ->
+  `home_assistant_error "Tag with ID <id> already exists."`. Entry `{"id","name","description"}`; a tag
+  created without a name is listed as `"Tag <id>"`. Update merges; `name: null`/`description: null` ->
+  `invalid_format`, `description: ""` is stored as `""`. Unknown id -> `not_found`.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

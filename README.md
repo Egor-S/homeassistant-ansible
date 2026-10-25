@@ -38,6 +38,10 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.zone_info` | List zones |
 | `egors.homeassistant.input_boolean`, `input_button`, `input_datetime`, `input_number`, `input_select`, `input_text`, `counter`, `timer`, `schedule` | Manage a single helper of that type |
 | `egors.homeassistant.helper_info` | List helpers of one type |
+| `egors.homeassistant.person` | Manage a single person (linked user, device trackers, picture) |
+| `egors.homeassistant.person_info` | List people |
+| `egors.homeassistant.tag` | Manage a single NFC tag or QR code, by its ID |
+| `egors.homeassistant.tag_info` | List tags |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -84,9 +88,9 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 | Setting | Status | API / notes |
 |---|---|---|
 | Users (create, groups such as admin, local-only, active, delete) | 🟡 | WS `config/auth/*`, `config/auth_provider/homeassistant/*` (credentials, passwords) |
-| People | 🟡 | WS `person/{list,create,update,delete}` |
+| People | ✅ `person`, `person_info` | WS `person/*`. The user is linked by `user_id` for now. |
 | Zones | ✅ `zone`, `zone_info` | WS `zone/*`. The home zone comes from `core_config`. |
-| Tags | 🟡 | WS `tag/{list,create,update,delete}` |
+| Tags | ✅ `tag`, `tag_info` | WS `tag/*` |
 | MFA for a user | ❌ | Interactive (`auth/setup_mfa`) |
 
 ### Helpers

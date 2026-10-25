@@ -1,0 +1,122 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Read people of earlier runs
+      egors.homeassistant.person_info:
+      register: leftovers
+
+    - name: Remove leftovers of earlier runs
+      egors.homeassistant.person:
+        person_id: "{{ item.person_id }}"
+        state: absent
+      loop: "{{ leftovers.people | selectattr('name', 'match', 'ansible_test_') | list }}"
+
+    - name: Create in check mode
+      egors.homeassistant.person: &create_args
+        name: ansible_test_person
+        device_trackers: [device_tracker.ansible_b, device_tracker.ansible_a]
+        picture: /local/jane.png
+      check_mode: true
+      register: create_check
+
+    - name: Create
+      egors.homeassistant.person: *create_args
+      register: created
+
+    - name: Create again with reordered trackers
+      egors.homeassistant.person:
+        name: " ANSIBLE_TEST_PERSON"
+        device_trackers: [device_tracker.ansible_a, device_tracker.ansible_b]
+      register: created_again
+
+    - name: Remove picture and trackers
+      egors.homeassistant.person: &clear
+        person_id: ansible_test_person
+        picture: ""
+        device_trackers: []
+      diff: true
+      register: cleared
+
+    - name: Remove again
+      egors.homeassistant.person: *clear
+      register: cleared_again
+
+    - name: Link the owner's user, who already is a person
+      egors.homeassistant.person:
+        person_id: ansible_test_person
+        user_id: "{{ (leftovers.people | selectattr('user_id') | first).user_id }}"
+      register: taken
+      ignore_errors: true
+
+    - name: Read the person
+      egors.homeassistant.person_info:
+        person_id: ansible_test_person
+      register: info
+
+    - name: Person behaved
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.person.person_id is none
+          - created is changed
+          - created.person.person_id == 'ansible_test_person'
+          - created.person.device_trackers == ['device_tracker.ansible_a', 'device_tracker.ansible_b']
+          - created.person.picture == '/local/jane.png'
+          - created.person.user_id is none
+          - created_again is not changed
+          - cleared is changed
+          - cleared.diff.before.picture == '/local/jane.png'
+          - cleared.person.picture is none
+          - cleared.person.device_trackers == []
+          - cleared_again is not changed
+          - taken is failed
+          - "'User already taken' in taken.msg"
+          - info.people | length == 1
+
+    - name: A second person, renamed onto the same name
+      egors.homeassistant.person:
+        name: ansible_test_other
+
+    - name: Rename it
+      egors.homeassistant.person:
+        person_id: ansible_test_other
+        name: ansible_test_person
+
+    - name: Update by an ambiguous name
+      egors.homeassistant.person:
+        name: ansible_test_person
+        picture: /local/x.png
+      register: ambiguous
+      ignore_errors: true
+
+    - name: Delete by ID
+      egors.homeassistant.person: &delete
+        person_id: ansible_test_person
+        state: absent
+      register: deleted
+
+    - name: Delete again
+      egors.homeassistant.person: *delete
+      register: deleted_again
+
+    - name: Duplicates and delete behaved
+      ansible.builtin.assert:
+        that:
+          - ambiguous is failed
+          - "'2 entries' in ambiguous.msg"
+          - deleted is changed
+          - deleted_again is not changed
+
+  always:
+    - name: Read people
+      egors.homeassistant.person_info:
+      register: remaining
+
+    - name: Clean up
+      egors.homeassistant.person:
+        person_id: "{{ item.person_id }}"
+        state: absent
+      loop: "{{ remaining.people | selectattr('name', 'match', 'ansible_test_') | list }}"

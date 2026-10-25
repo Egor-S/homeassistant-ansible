@@ -91,10 +91,14 @@ class Registry:
 
     ``convert`` maps a field to a function that turns a provided value into the form Home Assistant stores
     (raising ``ValueError`` for an invalid one), so that it compares equal to the stored value.
+
+    ``list_key`` picks the entries out of a ``list`` result that is a dict (``person/list``). With
+    ``create_with_id`` the id is chosen by the user (tags): a missing entry is created with it, and
+    ``name`` is optional.
     """
 
     def __init__(self, module, prefix, id_field, strings=(), lists=(), ints=(), values=(), entry_key=None,
-                 unclearable=(), required=(), replace=False, convert=None):
+                 unclearable=(), required=(), replace=False, convert=None, list_key=None, create_with_id=False):
         self.module = module
         self.prefix = prefix
         self.id_field = id_field
@@ -107,12 +111,15 @@ class Registry:
         self.required = tuple(required)
         self.replace = replace
         self.convert = convert or {}
+        self.list_key = list_key
+        self.create_with_id = create_with_id
 
     def normalize(self, entry):
         return normalize_entry(entry, self.id_field, self.strings, self.lists, self.ints, self.values, self.entry_key)
 
     def list_entries(self):
-        return self.module.call(self.prefix + "/list")
+        entries = self.module.call(self.prefix + "/list")
+        return entries[self.list_key] if self.list_key else entries
 
     def info(self, result_key, id_param=None):
         """Implementation of the ``*_info`` modules: list, filter by id/name, exit."""
@@ -159,14 +166,18 @@ class Registry:
             if changed and not module.check_mode:
                 module.call(self.prefix + "/delete", **{self.id_field: before[self.id_field]})
         elif entry is None:
-            if entry_id is not None:
+            if entry_id is not None and not self.create_with_id:
                 module.fail_json(msg="%s %r does not exist; omit %s to create it by name"
                                  % (self.id_field, entry_id, self.id_field))
-            missing = ([] if name is not None else ["name"]) + [f for f in self.required if f not in desired]
+            missing = ([] if name is not None or self.create_with_id else ["name"])
+            missing += [f for f in self.required if f not in desired]
             if missing:
                 module.fail_json(msg="%s %s required to create" % (" and ".join(missing), "is" if len(missing) == 1 else "are"))
             payload = dict((k, v) for k, v in desired.items() if v is not None and v != [])
-            payload["name"] = name.strip()
+            if name is not None:
+                payload["name"] = name.strip()
+            if self.create_with_id:
+                payload[self.id_field] = entry_id
             changed = True
             after = self.predict(None, payload)
             if not module.check_mode:
