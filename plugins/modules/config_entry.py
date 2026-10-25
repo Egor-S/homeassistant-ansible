@@ -61,6 +61,7 @@ attributes:
     description: The module talks to Home Assistant over the network from the controller.
 seealso:
   - module: egors.homeassistant.config_entry_info
+  - module: egors.homeassistant.config_entry_options
 """
 
 EXAMPLES = r"""
@@ -114,7 +115,7 @@ entry:
       description: Who disabled the entry, or null.
       type: str
     supports_options:
-      description: Whether the entry has options.
+      description: Whether the entry has options, see M(egors.homeassistant.config_entry_options).
       type: bool
 require_restart:
   description: Whether Home Assistant must be restarted to finish removing the entry.

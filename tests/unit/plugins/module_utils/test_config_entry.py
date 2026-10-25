@@ -9,9 +9,11 @@ import pytest
 
 from ansible_collections.egors.homeassistant.plugins.module_utils.config_entry import (
     FlowError,
+    current_values,
     describe_step,
     find_entries,
     run_flow,
+    run_options_flow,
 )
 
 MENU = {"type": "menu", "flow_id": "f", "step_id": "user", "menu_options": ["sensor", "switch"]}
@@ -59,3 +61,37 @@ def test_find_entries_and_describe():
     entries = [{"domain": "a", "title": "Family "}, {"domain": "b", "title": "Family"}]
     assert find_entries(entries, "a", "family") == [entries[0]]
     assert describe_step(MENU) == "menu 'user' with options sensor, switch"
+
+
+OPTIONS_FORM = {"type": "form", "flow_id": "o", "step_id": "sensor", "errors": None, "data_schema": [
+    {"name": "state", "description": {"suggested_value": "{{ 1 }}"}},
+    {"name": "unit_of_measurement", "description": {"suggested_value": "W"}},
+    {"name": "device_class", "default": "power"},
+    {"name": "device_id"},
+]}
+
+
+def test_current_values():
+    assert current_values(OPTIONS_FORM) == {"state": "{{ 1 }}", "unit_of_measurement": "W", "device_class": "power"}
+
+
+def test_options_unchanged_cancels_the_flow():
+    rest = FakeRest((200, OPTIONS_FORM))
+    assert run_options_flow(rest, "/options", "e", [{"unit_of_measurement": "W"}], False) == []
+    assert rest.calls[-1] == ("/options/o", "DELETE", None)
+
+
+def test_options_changed_keeps_the_other_values():
+    rest = FakeRest((200, OPTIONS_FORM), (200, {"type": "create_entry", "flow_id": "o"}))
+    assert run_options_flow(rest, "/options", "e", [{"unit_of_measurement": "kW"}], False) == [
+        "sensor.unit_of_measurement"]
+    assert rest.calls[-1] == ("/options/o", "POST", {"state": "{{ 1 }}", "unit_of_measurement": "kW",
+                                                     "device_class": "power"})
+
+
+def test_options_check_mode_and_typos():
+    rest = FakeRest((200, OPTIONS_FORM))
+    assert run_options_flow(rest, "/options", "e", [{"state": "x"}], True) == ["sensor.state"]
+    assert rest.calls[-1][1] == "DELETE"
+    with pytest.raises(FlowError, match="no fields unit"):
+        run_options_flow(FakeRest((200, OPTIONS_FORM)), "/options", "e", [{"unit": "kW"}], False)

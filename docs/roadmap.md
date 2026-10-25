@@ -68,3 +68,4 @@ setup (interactive). Revisit on request.
 | 11b: `logger_level`, `network` | done | #15 |
 | 11c: `exposed_entity`, `expose_new_entities`, `area_order`, `floor_order`, `energy_prefs` | done | #16 |
 | 12a | done | #17 |
+| 12b | done | #18 |

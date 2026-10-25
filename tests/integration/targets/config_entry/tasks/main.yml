@@ -82,6 +82,67 @@
       egors.homeassistant.config_entry: *template
       register: template_again
 
+    - name: Set the unit in check mode
+      egors.homeassistant.config_entry_options: &unit
+        domain: template
+        title: ansible_test_template
+        steps:
+          - unit_of_measurement: W
+      check_mode: true
+      register: unit_check
+
+    - name: Set the unit
+      egors.homeassistant.config_entry_options: *unit
+      register: unit
+
+    - name: Set it again
+      egors.homeassistant.config_entry_options: *unit
+      register: unit_again
+
+    - name: Change the state template; the unit must survive
+      egors.homeassistant.config_entry_options:
+        domain: template
+        title: ansible_test_template
+        steps:
+          - state: !unsafe "{{ 2 + 2 }}"
+      register: state_changed
+
+    - name: The unit is still set
+      egors.homeassistant.config_entry_options: *unit
+      register: unit_kept
+
+    - name: A field the form does not have
+      egors.homeassistant.config_entry_options:
+        domain: template
+        title: ansible_test_template
+        steps:
+          - unit: W
+      register: typo
+      ignore_errors: true
+
+    - name: An entry without options
+      egors.homeassistant.config_entry_options:
+        domain: local_calendar
+        title: ansible_test_calendar
+        steps:
+          - ansible_test_field: ansible_test_value
+      register: no_options
+      ignore_errors: true
+
+    - name: Options behaved
+      ansible.builtin.assert:
+        that:
+          - unit_check is changed
+          - unit is changed
+          - unit.changed_fields | length == 1
+          - unit.changed_fields[0] is search('unit_of_measurement')
+          - unit_again is not changed
+          - state_changed is changed
+          - unit_kept is not changed
+          - typo is failed
+          - "'no fields unit' in typo.msg"
+          - no_options is failed
+
     - name: Wrong menu option
       egors.homeassistant.config_entry:
         domain: template
