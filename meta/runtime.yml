@@ -22,3 +22,7 @@ action_groups:
     - timer
     - schedule
     - helper_info
+    - person
+    - person_info
+    - tag
+    - tag_info

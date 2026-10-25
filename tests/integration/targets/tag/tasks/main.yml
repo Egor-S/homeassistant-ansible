@@ -1,0 +1,103 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Remove leftovers of earlier runs
+      egors.homeassistant.tag:
+        tag_id: "{{ item }}"
+        state: absent
+      loop: [ansible_test_tag, ansible_test_bare]
+
+    - name: Create in check mode
+      egors.homeassistant.tag: &create_args
+        tag_id: ansible_test_tag
+        name: Front door
+        description: Inside the door frame
+      check_mode: true
+      register: create_check
+
+    - name: Read tags after check mode
+      egors.homeassistant.tag_info:
+        tag_id: ansible_test_tag
+      register: after_check
+
+    - name: Create
+      egors.homeassistant.tag: *create_args
+      register: created
+
+    - name: Create again
+      egors.homeassistant.tag: *create_args
+      register: created_again
+
+    - name: Rename and empty the description
+      egors.homeassistant.tag: &update
+        tag_id: ansible_test_tag
+        name: Back door
+        description: ""
+      diff: true
+      register: updated
+
+    - name: Update again
+      egors.homeassistant.tag: *update
+      register: updated_again
+
+    - name: Create without a name
+      egors.homeassistant.tag:
+        tag_id: ansible_test_bare
+      register: bare
+
+    - name: Create without a name again
+      egors.homeassistant.tag:
+        tag_id: ansible_test_bare
+      register: bare_again
+
+    - name: Find by name
+      egors.homeassistant.tag_info:
+        name: back DOOR
+      register: by_name
+
+    - name: Tag behaved
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.tag.tag_id == 'ansible_test_tag'
+          - after_check.tags == []
+          - created is changed
+          - created.tag.name == 'Front door'
+          - created.tag.description == 'Inside the door frame'
+          - created_again is not changed
+          - updated is changed
+          - updated.diff.before.name == 'Front door'
+          - updated.tag.name == 'Back door'
+          - updated.tag.description == ''
+          - updated_again is not changed
+          - bare is changed
+          - bare.tag.tag_id == 'ansible_test_bare'
+          - bare_again is not changed
+          - by_name.tags | map(attribute='tag_id') | list == ['ansible_test_tag']
+
+    - name: Delete
+      egors.homeassistant.tag: &delete
+        tag_id: ansible_test_tag
+        state: absent
+      register: deleted
+
+    - name: Delete again
+      egors.homeassistant.tag: *delete
+      register: deleted_again
+
+    - name: Delete behaved
+      ansible.builtin.assert:
+        that:
+          - deleted is changed
+          - deleted.tag == {}
+          - deleted_again is not changed
+
+  always:
+    - name: Clean up
+      egors.homeassistant.tag:
+        tag_id: "{{ item }}"
+        state: absent
+      loop: [ansible_test_tag, ansible_test_bare]
