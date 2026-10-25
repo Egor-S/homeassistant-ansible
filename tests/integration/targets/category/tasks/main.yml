@@ -1,0 +1,95 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Remove leftovers of earlier runs
+      ansible.builtin.include_tasks: cleanup.yml
+
+    - name: Create in check mode
+      egors.homeassistant.category: &create_args
+        scope: automation
+        name: ansible_test_category
+        icon: mdi:lightbulb
+      check_mode: true
+      register: create_check
+
+    - name: Create
+      egors.homeassistant.category: *create_args
+      register: created
+
+    - name: Create again
+      egors.homeassistant.category: *create_args
+      register: created_again
+
+    - name: Same name in another scope is another category
+      egors.homeassistant.category:
+        scope: script
+        name: ansible_test_category
+      register: other_scope
+
+    - name: Remove the icon
+      egors.homeassistant.category: &clear
+        scope: automation
+        category_id: "{{ created.category.category_id }}"
+        icon: ""
+      register: cleared
+
+    - name: Remove again
+      egors.homeassistant.category: *clear
+      register: cleared_again
+
+    - name: Rename
+      egors.homeassistant.category:
+        scope: automation
+        category_id: "{{ created.category.category_id }}"
+        name: ansible_test_renamed
+      register: renamed
+
+    - name: List the automation categories
+      egors.homeassistant.category_info:
+        scope: automation
+        name: ansible_test_renamed
+      register: listed
+
+    - name: Delete
+      egors.homeassistant.category: &delete
+        scope: automation
+        name: ansible_test_renamed
+        state: absent
+      register: deleted
+
+    - name: Delete again
+      egors.homeassistant.category: *delete
+      register: deleted_again
+
+    - name: List the script categories
+      egors.homeassistant.category_info:
+        scope: script
+      register: scripts
+
+    - name: Category behaved
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.category.category_id is none
+          - created is changed
+          - created.category.category_id | length > 10
+          - created.category.icon == 'mdi:lightbulb'
+          - created_again is not changed
+          - other_scope is changed
+          - other_scope.category.category_id != created.category.category_id
+          - cleared is changed
+          - cleared.category.icon is none
+          - cleared_again is not changed
+          - renamed is changed
+          - renamed.category.name == 'ansible_test_renamed'
+          - listed.categories | map(attribute='category_id') | list == [created.category.category_id]
+          - deleted is changed
+          - deleted_again is not changed
+          - scripts.categories | selectattr('name', 'eq', 'ansible_test_category') | list | length == 1
+
+  always:
+    - name: Clean up
+      ansible.builtin.include_tasks: cleanup.yml

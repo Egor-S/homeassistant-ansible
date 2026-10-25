@@ -46,6 +46,8 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.entity_info` | List entities of the entity registry |
 | `egors.homeassistant.device` | Settings of an existing device: user-given name, area, labels, enabled |
 | `egors.homeassistant.device_info` | List devices of the device registry |
+| `egors.homeassistant.category` | Manage a single category of one scope (automation, script, ...) |
+| `egors.homeassistant.category_info` | List categories of one scope |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -82,7 +84,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 | Floors | ✅ `floor`, `floor_info` | WS `config/floor_registry/*` |
 | Area / floor ordering | 🟡 | WS `config/{area,floor}_registry/reorder` |
 | Labels | ✅ `label`, `label_info` | WS `config/label_registry/*` |
-| Categories | 🟡 | WS `config/category_registry/*` (CRUD) |
+| Categories | ✅ `category`, `category_info` | WS `config/category_registry/*`. Assigning entities to categories isn't supported yet. |
 | Devices: area, name, labels, disable | ✅ `device`, `device_info` | WS `config/device_registry/update`. Devices come from integrations, so update only. |
 | Entities: name, icon, area, aliases, labels, device class, disable/hide, entity ID | ✅ `entity`, `entity_info` | WS `config/entity_registry/get`, `update`. Created by integrations, so update only. |
 | Entities exposed to voice assistants | 🟡 | WS `homeassistant/expose_entity`, `expose_new_entities/set` |

@@ -94,11 +94,12 @@ class Registry:
 
     ``list_key`` picks the entries out of a ``list`` result that is a dict (``person/list``). With
     ``create_with_id`` the id is chosen by the user (tags): a missing entry is created with it, and
-    ``name`` is optional.
+    ``name`` is optional. ``common`` parameters are sent with every command (the ``scope`` of categories).
     """
 
     def __init__(self, module, prefix, id_field, strings=(), lists=(), ints=(), values=(), entry_key=None,
-                 unclearable=(), required=(), replace=False, convert=None, list_key=None, create_with_id=False):
+                 unclearable=(), required=(), replace=False, convert=None, list_key=None, create_with_id=False,
+                 common=None):
         self.module = module
         self.prefix = prefix
         self.id_field = id_field
@@ -113,12 +114,16 @@ class Registry:
         self.convert = convert or {}
         self.list_key = list_key
         self.create_with_id = create_with_id
+        self.common = common or {}
 
     def normalize(self, entry):
         return normalize_entry(entry, self.id_field, self.strings, self.lists, self.ints, self.values, self.entry_key)
 
+    def call(self, suffix, **params):
+        return self.module.call(self.prefix + suffix, **dict(self.common, **params))
+
     def list_entries(self):
-        entries = self.module.call(self.prefix + "/list")
+        entries = self.call("/list")
         return entries[self.list_key] if self.list_key else entries
 
     def info(self, result_key, id_param=None):
@@ -164,7 +169,7 @@ class Registry:
         if params["state"] == "absent":
             after, changed = {}, entry is not None
             if changed and not module.check_mode:
-                module.call(self.prefix + "/delete", **{self.id_field: before[self.id_field]})
+                self.call("/delete", **{self.id_field: before[self.id_field]})
         elif entry is None:
             if entry_id is not None and not self.create_with_id:
                 module.fail_json(msg="%s %r does not exist; omit %s to create it by name"
@@ -211,7 +216,7 @@ class Registry:
         return self.normalize(base)
 
     def write(self, suffix, payload, desired):
-        entry = self.normalize(self.module.call(self.prefix + suffix, **payload))
+        entry = self.normalize(self.call(suffix, **payload))
         for field, value in desired.items():
             if entry.get(field) != value:
                 self.module.warn("Home Assistant stored %s=%r instead of the requested %r; it may not "

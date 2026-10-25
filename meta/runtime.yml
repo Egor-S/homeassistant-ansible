@@ -30,3 +30,5 @@ action_groups:
     - entity_info
     - device
     - device_info
+    - category
+    - category_info

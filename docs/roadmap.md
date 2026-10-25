@@ -59,3 +59,4 @@ setup (interactive). Revisit on request.
 | 4 | done | #7 |
 | 5 | done | #8 |
 | 6 | done | #9 |
+| 7 | done | #10 |
