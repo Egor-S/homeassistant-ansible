@@ -87,10 +87,14 @@ def compute_changes(current, desired):
 
 
 class Registry:
-    """``unclearable`` fields can't be removed once set; ``required`` fields are needed besides ``name`` to create."""
+    """``unclearable`` fields can't be removed once set; ``required`` fields are needed besides ``name`` to create.
+
+    ``convert`` maps a field to a function that turns a provided value into the form Home Assistant stores
+    (raising ``ValueError`` for an invalid one), so that it compares equal to the stored value.
+    """
 
     def __init__(self, module, prefix, id_field, strings=(), lists=(), ints=(), values=(), entry_key=None,
-                 unclearable=(), required=(), replace=False):
+                 unclearable=(), required=(), replace=False, convert=None):
         self.module = module
         self.prefix = prefix
         self.id_field = id_field
@@ -102,6 +106,7 @@ class Registry:
         self.unclearable = tuple(unclearable)
         self.required = tuple(required)
         self.replace = replace
+        self.convert = convert or {}
 
     def normalize(self, entry):
         return normalize_entry(entry, self.id_field, self.strings, self.lists, self.ints, self.values, self.entry_key)
@@ -139,6 +144,12 @@ class Registry:
             desired = desired_values(params, self.strings, self.lists, self.ints, self.values)
         except ValueError as e:
             module.fail_json(msg="expected an integer or an empty string, got %s" % e)
+        for field, convert in self.convert.items():
+            if desired.get(field) is not None:
+                try:
+                    desired[field] = convert(desired[field])
+                except ValueError as e:
+                    module.fail_json(msg="invalid %s: %s" % (field, e))
         for field in self.unclearable:
             if field in desired and desired[field] is None:
                 module.fail_json(msg="%s can not be removed, only changed" % field)

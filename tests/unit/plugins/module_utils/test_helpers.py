@@ -9,7 +9,13 @@ import importlib
 
 import pytest
 
-from ansible_collections.egors.homeassistant.plugins.module_utils.helpers import HELPERS, helper_registry
+from ansible_collections.egors.homeassistant.plugins.module_utils.helpers import (
+    HELPERS,
+    helper_registry,
+    to_duration,
+    to_time,
+    to_time_ranges,
+)
 
 
 @pytest.mark.parametrize("domain", sorted(HELPERS))
@@ -64,7 +70,8 @@ NUMBER = {"id": "target", "name": "Target", "min": 15.0, "max": 25.0, "step": 1.
 
 def run(domain, params, entries):
     base = dict((k, None) for k in ("name", domain + "_id", "icon", "min", "max", "step", "initial", "mode",
-                                    "unit_of_measurement", "minimum", "maximum", "restore", "options", "pattern"))
+                                    "unit_of_measurement", "minimum", "maximum", "restore", "options", "pattern",
+                                    "duration"))
     module = FakeModule(dict(base, state="present", **params), entries)
     helper_registry(module, domain).ensure(domain)
     return module
@@ -103,3 +110,40 @@ def test_counter_limits_clear():
     module = run("counter", {"counter_id": "c", "maximum": ""}, entries)
     assert module.calls[-1] == ("counter/update", {"counter_id": "c", "name": "C", "initial": 0, "step": 1,
                                                    "minimum": 0, "restore": True})
+
+
+@pytest.mark.parametrize("value, expected", [
+    (90, "0:01:30"), ("90", "0:01:30"), ("0:01:30", "0:01:30"), ("00:01:30", "0:01:30"), ("1:30", "1:30:00"),
+    ("25:00:00", "25:00:00"), (0, "0:00:00"),
+])
+def test_to_duration(value, expected):
+    assert to_duration(value) == expected
+
+
+@pytest.mark.parametrize("value", ["abc", "1:60", "1:2:3:4", True, "-5"])
+def test_to_duration_rejects(value):
+    with pytest.raises(ValueError):
+        to_duration(value)
+
+
+@pytest.mark.parametrize("value, expected", [("7:00", "07:00:00"), ("07:00:30", "07:00:30"), ("24:00", "24:00:00")])
+def test_to_time(value, expected):
+    assert to_time(value) == expected
+
+
+@pytest.mark.parametrize("value", ["24:01", "25:00", "7", "7:00:00.5"])
+def test_to_time_rejects(value):
+    with pytest.raises(ValueError):
+        to_time(value)
+
+
+def test_to_time_ranges_sorts_and_drops_empty_data():
+    ranges = [{"from": "13:00", "to": "17:30", "data": {"a": 1}}, {"from": "9:00", "to": "12:00", "data": None}]
+    assert to_time_ranges(ranges) == [{"from": "09:00:00", "to": "12:00:00"},
+                                      {"from": "13:00:00", "to": "17:30:00", "data": {"a": 1}}]
+
+
+def test_converted_value_compares_with_stored_form():
+    entries = [{"id": "tea", "name": "Tea", "duration": "0:04:00", "restore": False}]
+    module = run("timer", {"name": "Tea", "duration": "240"}, entries)
+    assert not module.result["changed"]

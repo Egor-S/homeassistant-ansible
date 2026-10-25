@@ -22,7 +22,7 @@ options:
       - Type of the helpers, the name of the module that manages them.
     type: str
     required: true
-    choices: [counter, input_boolean, input_button, input_number, input_select, input_text]
+    choices: [counter, input_boolean, input_button, input_datetime, input_number, input_select, input_text, schedule, timer]
   name:
     description:
       - Only return the helpers with this name, ignoring case and surrounding or repeated whitespace.
@@ -46,9 +46,12 @@ seealso:
   - module: egors.homeassistant.counter
   - module: egors.homeassistant.input_boolean
   - module: egors.homeassistant.input_button
+  - module: egors.homeassistant.input_datetime
   - module: egors.homeassistant.input_number
   - module: egors.homeassistant.input_select
   - module: egors.homeassistant.input_text
+  - module: egors.homeassistant.schedule
+  - module: egors.homeassistant.timer
 """
 
 EXAMPLES = r"""

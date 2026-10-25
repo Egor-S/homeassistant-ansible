@@ -280,6 +280,9 @@
           - counter_deleted_again is not changed
           - counter_info.helpers == []
 
+    - name: Helpers with values that Home Assistant rewrites
+      ansible.builtin.include_tasks: time.yml
+
   always:
     - name: Clean up
       ansible.builtin.include_tasks: cleanup.yml
