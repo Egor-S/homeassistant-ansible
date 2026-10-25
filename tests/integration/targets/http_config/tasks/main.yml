@@ -1,0 +1,103 @@
+---
+- name: HTTP config tests
+  module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Read the original configuration
+      egors.homeassistant.http_config:
+      register: original
+
+    - name: Reading changes nothing
+      ansible.builtin.assert:
+        that:
+          - original is not changed
+          - not original.restarted
+          - original.config.server_port == 8123
+          - original.ha_version is defined
+
+    - name: X-Forwarded-For without a proxy is rejected before anything is applied
+      egors.homeassistant.http_config:
+        use_x_forwarded_for: true
+        trusted_proxies: []
+      register: no_proxy
+      ignore_errors: true
+
+    - name: Rejected without a restart
+      ansible.builtin.assert:
+        that:
+          - no_proxy is failed
+          - "'trusted proxy' in no_proxy.msg"
+
+    - name: Trust a reverse proxy in check mode
+      egors.homeassistant.http_config: &proxy
+        use_x_forwarded_for: true
+        trusted_proxies:
+          - 172.16.0.1
+          - 10.0.0.0/8
+        login_attempts_threshold: 5
+      check_mode: true
+      diff: true
+      register: check
+
+    - name: Read after check mode
+      egors.homeassistant.http_config:
+      register: after_check
+
+    - name: Check mode reports a change but applies nothing
+      ansible.builtin.assert:
+        that:
+          - check is changed
+          - not check.restarted
+          - check.config.trusted_proxies == ['10.0.0.0/8', '172.16.0.1/32']
+          - check.diff.before.trusted_proxies == []
+          - after_check.config == original.config
+
+    - name: Apply
+      egors.homeassistant.http_config: *proxy
+      register: apply
+
+    - name: Apply restarts and confirms the new configuration
+      ansible.builtin.assert:
+        that:
+          - apply is changed
+          - apply.restarted
+          - apply.config.use_x_forwarded_for
+          - apply.config.trusted_proxies == ['10.0.0.0/8', '172.16.0.1/32']
+          - apply.config.login_attempts_threshold == 5
+          - apply.config.server_port == original.config.server_port
+
+    - name: Repeat
+      egors.homeassistant.http_config: *proxy
+      register: repeat
+
+    - name: Repeat is idempotent
+      ansible.builtin.assert:
+        that:
+          - repeat is not changed
+          - not repeat.restarted
+
+    - name: Other modules work after the restart
+      egors.homeassistant.core_config:
+      register: core
+
+    - name: Core config is readable
+      ansible.builtin.assert:
+        that:
+          - core is not changed
+
+  always:
+    - name: Restore the original configuration
+      egors.homeassistant.http_config:
+        use_x_forwarded_for: "{{ original.config.use_x_forwarded_for }}"
+        trusted_proxies: "{{ original.config.trusted_proxies }}"
+        login_attempts_threshold: "{{ original.config.login_attempts_threshold }}"
+      register: restore
+      when: original is defined and original is succeeded
+
+    - name: Restore restarted back to the original
+      ansible.builtin.assert:
+        that:
+          - restore.config == original.config
+      when: original is defined and original is succeeded

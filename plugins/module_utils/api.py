@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import ssl
+import time
 import traceback
 
 from ansible.module_utils.basic import AnsibleModule, env_fallback, missing_required_lib
@@ -227,6 +228,24 @@ class WebSocketClient:
 
     def _receive(self):
         return json.loads(self._conn.recv())
+
+    def wait_closed(self, timeout):
+        """Wait for the server to close the connection (e.g. on restart); return False on timeout."""
+        if self._conn is None:
+            return True
+        deadline = time.time() + timeout
+        self._conn.settimeout(1)
+        while time.time() < deadline:
+            try:
+                opcode = self._conn.recv_data()[0]
+            except websocket.WebSocketTimeoutException:
+                continue
+            except Exception:  # connection reset or closed without a close frame
+                opcode = websocket.ABNF.OPCODE_CLOSE
+            if opcode == websocket.ABNF.OPCODE_CLOSE:
+                self.close()
+                return True
+        return False
 
     def call(self, command, **params):
         """Send a command and return its ``result``; raise HomeAssistantAPIError on failure."""

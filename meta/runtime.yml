@@ -3,6 +3,7 @@ requires_ansible: '>=2.20.0'
 action_groups:
   all:
     - core_config
+    - http_config
     - area
     - area_info
     - floor

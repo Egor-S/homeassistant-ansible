@@ -9,10 +9,11 @@ time. Support for older versions may be added later.
 
 ## Scope
 
-- **API-only** (REST + WebSocket) for the MVP. YAML-only settings (`http:` /
-  `trusted_proxies`, `recorder`, `logger`, packages) are out of scope.
-  `http` is expected to leave YAML in the 2027 release, which would bring it
-  into API scope. A YAML/file-managing component may be added later.
+- **API-only** (REST + WebSocket) for the MVP. YAML-only settings (`recorder`,
+  `logger`, packages) are out of scope; a YAML/file-managing component may be
+  added later. `http` is already API-managed in the pinned 2026.10.4 (store plus
+  `http/config*` WS commands; YAML is imported once, then ignored, breaking in
+  2027.2.0), so `http_config` covers it.
 - Start small; add features once the MVP proves the approach.
 
 ## Architecture
@@ -45,6 +46,9 @@ time. Support for older versions may be added later.
 | `core_config` | singleton | **Partial** state: only keys provided are compared/updated (`config/core/update`). |
 | `area` | collection item | `state: present/absent`. Match by `area_id` if given, else case-insensitive `name`; rename = `area_id` + new `name`. Fields: `name`, `aliases` (set semantics), `icon`, `picture`; `floor_id`, `labels`, `temperature_entity_id`, `humidity_entity_id` passed through as raw IDs. |
 | `area_info` | info | Lists areas. |
+| `floor` | collection item | Same shape as `area`: match by `floor_id`, else case-insensitive `name`. Fields: `name`, `aliases` (set semantics), `icon`, `level` (int). |
+| `floor_info` | info | Lists floors. |
+| `http_config` | singleton | **Partial** state like `core_config`, but `http/config/configure` replaces the whole config, so stable plus changes is sent. A change restarts HA into a 5-minute trial; the module waits for the WS connection to drop, reconnects (`reconnect_url`, for port/TLS changes) until `RUNNING`, checks HA runs on the new config, then promotes it. An unreachable result reverts itself. |
 
 Deferred: a set-level module (`areas` with `purge`, default `false`) once the
 per-item module is proven. Purging areas is destructive (strips device/entity
@@ -97,6 +101,9 @@ assignments), hence opt-in.
 - Generic registry logic (find/diff/create/update/delete, check mode, diff) lives
   in `module_utils/registry.py`; `area.py`/`floor.py` are ~20 lines of code plus docs.
   Field kinds: `strings` and `ints` (`""` clears) and `lists` (set semantics).
+- An onboarded HA answers `/api/onboarding` with 404 after a restart (the views are
+  only registered while onboarding is unfinished); `onboarding` treats that as done,
+  and the compose healthcheck uses `/manifest.json`. Found by `http_config` restarts.
 
 ## MVP status (2026-10-25, HA 2026.10.4)
 
@@ -104,21 +111,21 @@ assignments), hence opt-in.
 2. ✅ Second run `changed=0`.
 3. ✅ `--check --diff` shows pending changes without applying (on an onboarded
    instance).
-4. ⏳ CI workflow written and every suite passes locally on ansible-core 2.20 and
-   2.21; not yet run on GitHub Actions.
+4. ✅ CI green on GitHub Actions: sanity, units and integration on ansible-core
+   2.20 and 2.21 against the pinned HA.
 5. ✅ Proven by adding `floor`/`floor_info`: 19 lines of module code (area: 18).
    `registry.py` needed one generic extension (an `ints` field kind for `level`)
    and the second resource exposed a latent bug (create dropped `0` values).
 
 ## Open
 
-- When to add YAML-managed settings (revisit with HA 2027 `http` change).
+- When to add YAML-managed settings (`recorder`, `logger`, packages).
 - Whether a "whole config" role is worth having.
-- Galaxy publishing (after viability is shown).
+- Galaxy publishing (viability is now shown).
 
 ## Assumptions to verify
 
-- The 2027 `http` change (user-provided).
-- WS commands `config/core/update`, `config/area_registry/*`, the onboarding
-  REST flow, and the HA version in the WS auth response, against the pinned HA.
-- Users must install `websocket-client` on the controller.
+None open. Verified against the pinned HA (see `api-notes.md`): WS `config/core/update`,
+`config/area_registry/*`, the onboarding REST flow, and the HA version in the WS
+auth response, and the `http/config*` commands. `websocket-client` on the controller is a documented requirement
+(README).

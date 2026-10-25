@@ -174,6 +174,10 @@ class Onboarding:
                 steps = parse_steps(payload) if status == 200 else None
                 if steps is not None:
                     return steps
+                if status == 404 and self.is_home_assistant():
+                    # HA only registers the onboarding views while onboarding is unfinished at startup, and only
+                    # serves HTTP once onboarding is set up: after a restart, 404 means fully onboarded.
+                    return dict((step, True) for step in STEPS)
                 last_error = "GET /api/onboarding returned HTTP %s: %r" % (status, payload)
                 if status < 500 and status != 200:
                     # A 4xx will not go away by waiting (e.g. wrong URL or onboarding disabled).
@@ -182,6 +186,14 @@ class Onboarding:
                 self.module.fail_json(msg="Home Assistant at %s did not become ready within %s seconds: %s"
                                       % (self.url, wait_timeout, last_error))
             time.sleep(POLL_INTERVAL)
+
+    def is_home_assistant(self):
+        """Whether ``url`` is a Home Assistant (auth providers answer), to tell onboarded from a wrong URL."""
+        try:
+            status, payload = rest_request(self.url, "/auth/providers", **self.connection)
+        except HomeAssistantError:
+            return False
+        return status == 200 and isinstance(payload, (dict, list))
 
     def check_ok(self, status, payload, what):
         if status != 200:

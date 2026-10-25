@@ -27,6 +27,7 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.onboarding` | Complete first-run onboarding (creates the owner user) |
 | `egors.homeassistant.login` | Log in with username and password; returns a token valid for 1 day |
 | `egors.homeassistant.core_config` | Core configuration: name, location, units, time zone, URLs, ... (partial state) |
+| `egors.homeassistant.http_config` | HTTP server: port, SSL, reverse proxy, IP bans, CORS (partial state; restarts HA) |
 | `egors.homeassistant.area` | Manage a single area (match by `area_id` or case-insensitive `name`) |
 | `egors.homeassistant.area_info` | List areas |
 | `egors.homeassistant.floor` | Manage a single floor (`level` may be 0 or negative) |

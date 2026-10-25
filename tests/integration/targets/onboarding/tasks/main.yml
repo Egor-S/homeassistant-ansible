@@ -3,14 +3,16 @@
   ansible.builtin.uri:
     url: "{{ ha_url }}/api/onboarding"
     return_content: true
+    # 404: onboarded HA after a restart (the onboarding views are no longer registered).
+    status_code: [200, 404]
   register: initial_status
-  until: initial_status.status == 200
+  until: initial_status.status in [200, 404]
   retries: 60
   delay: 2
 
 - name: Determine whether HA is fresh
   ansible.builtin.set_fact:
-    ha_fresh: "{{ not (initial_status.json | selectattr('step', 'equalto', 'user') | first).done }}"
+    ha_fresh: "{{ initial_status.status == 200 and not (initial_status.json | selectattr('step', 'equalto', 'user') | first).done }}"
 
 - name: Fresh Home Assistant
   when: ha_fresh | bool

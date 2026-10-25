@@ -43,7 +43,10 @@ Fresh: `200`
 [{"step":"user","done":false},{"step":"core_config","done":false},{"step":"analytics","done":false},{"step":"integration","done":false}]
 ```
 After `user` step: `user.done=true`, others false. After all: all four `done:true`,
-still `200` with the list (not 404). So "onboarded" == all `done`.
+still `200` with the list - but only until the next restart. `onboarding.async_setup` skips
+registering its views when every step is done at startup, so an onboarded HA answers **404**
+after any restart. HTTP only starts listening once `frontend` (which depends on `onboarding`) is
+set up, so a 404 from a responding HA (`/auth/providers` is 200) means fully onboarded.
 
 ### POST /api/onboarding/users (no auth)
 Body (all required; voluptuous): `client_id`, `name`, `username`, `password`, `language`.
@@ -235,6 +238,38 @@ Same shape of commands as areas: `list`, `create` (`name` required; optional `al
   `invalid_info "The name   ANSIBLE_PROBE  (ansible_probe) is already in use"`.
 - Unknown `floor_id`: update -> `unknown_error "Unknown error"`; delete -> `invalid_info "Floor ID doesn't exist"`.
 - Unchanged update is a no-op (`modified_at` unchanged).
+
+## HTTP config (`http/config*`, admin only)
+
+Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.
+The `http:` YAML block is imported into storage once (`yaml_migration_done`), ignored afterwards,
+with repair issues `deprecated_yaml` / `yaml_still_present_after_migration`
+(`breaks_in_ha_version="2027.2.0"`). UI: Settings > System > Network.
+
+- **get** `{"type":"http/config"}` -> `{"stable","pending","revert_at","active_config_type","default"}`.
+  Default stable on a fresh container:
+  `{"server_port":8123,"cors_allowed_origins":["https://cast.home-assistant.io"],"login_attempts_threshold":-1,
+  "ip_ban_enabled":true,"ssl_profile":"modern","use_x_frame_options":true,"created_at":...,"error":null,"error_message":null}`.
+  Keys without a default (`server_host`, `ssl_certificate`, `ssl_key`, `ssl_peer_certificate`,
+  `use_x_forwarded_for`, `trusted_proxies`) are **absent** when unset.
+  `active_config_type`: `stable` / `pending` / `default` / `default_legacy_port`.
+- **configure** `{"type":"http/config/configure","config":{...}|null}` -> `{"restart": bool}`.
+  The config is a **full replacement**: omitted keys fall back to schema defaults, so send stable
+  (minus `created_at`/`error`/`error_message`) plus changes. `null` clears pending.
+  - Stored as **pending**; HA restarts itself whenever the pending slot changes (`restart: true`,
+    the WS connection drops). Same config as stable or as an error-free pending -> `restart: false`.
+  - `trusted_proxies` normalised via `ip_network` (`172.16.0.1` -> `172.16.0.1/32`; `10.0.0.1/8` is
+    invalid). `use_x_forwarded_for: true` without proxies -> `invalid_format`.
+  - A new `server_port` is bind-checked first (`bind_failed`); SSL paths must exist on the HA host.
+  - Only while `RUNNING`, else `not_running`.
+- After the restart HA runs on pending (`active_config_type: pending`) and schedules an auto-revert
+  5 minutes later (`revert_at`). Back up in ~5 s on the test container.
+- **promote** `{"type":"http/config/promote"}` -> pending becomes stable, revert cancelled.
+  Nothing pending -> `not_allowed "No pending HTTP config to promote"`.
+- A trial that is not promoted gets `error: not_promoted` and HA restarts on stable; one that fails
+  to bind gets `error: apply_failed` + `error_message` and HA continues on stable. A pending config
+  with an error is kept for inspection but never applied again.
+- Recovery mode always uses stable.
 
 ## Misc
 - `refresh_token` grant with wrong `client_id` -> `400 {"error":"invalid_request"}`.
