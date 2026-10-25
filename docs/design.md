@@ -65,6 +65,9 @@ time. Support for older versions may be added later.
 | `analytics` | singleton | Partial state; HA merges the preferences. |
 | `logger_level` | setting | Compares with the integration's current level from `logger/log_info` (the only readable value; HA doesn't expose which levels are stored), then sets it with `persistence: permanent`. No "default" level: with `NOTSET` the result can't be told apart from a YAML level. |
 | `network` | singleton | `configured_adapters` as a set; names are checked against the host's adapters because HA stores unknown ones. |
+| `exposed_entity`, `expose_new_entities` | setting | Per assistant booleans (`conversation`, `alexa`, `google_assistant`). The exposure list only names assistants an entity is exposed to, so "not listed" = `false`. |
+| `area_order`, `floor_order` | setting | Listed IDs first, the rest after in their current order (HA's `reorder` needs every ID once). |
+| `energy_prefs` | singleton | Each section (`energy_sources`, `device_consumption`, `device_consumption_water`) is a whole list; given sections replace the stored ones, others are kept (HA merges by section). |
 | `http_config` | singleton | **Partial** state like `core_config`, but `http/config/configure` replaces the whole config, so stable plus changes is sent. A change restarts HA into a 5-minute trial; the module waits for the WS connection to drop, reconnects (`reconnect_url`, for port/TLS changes) until `RUNNING`, checks HA runs on the new config, then promotes it. An unreachable result reverts itself. |
 
 Deferred: a set-level module (`areas` with `purge`, default `false`) once the

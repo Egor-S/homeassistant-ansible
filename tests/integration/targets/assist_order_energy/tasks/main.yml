@@ -1,0 +1,172 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    # exposed_entity / expose_new_entities
+    - name: Read the defaults for new entities
+      egors.homeassistant.expose_new_entities:
+      register: expose_new_initial
+
+    - name: Expose nothing new to Assist
+      egors.homeassistant.expose_new_entities: &expose_new
+        conversation: false
+      diff: true
+      register: expose_new
+
+    - name: Again
+      egors.homeassistant.expose_new_entities: *expose_new
+      register: expose_new_again
+
+    - name: Expose two sun sensors to Assist only, in check mode
+      egors.homeassistant.exposed_entity: &expose
+        entity_id: [sensor.sun_next_dawn, sensor.sun_next_dusk]
+        conversation: true
+        alexa: false
+      check_mode: true
+      register: expose_check
+
+    - name: Expose them
+      egors.homeassistant.exposed_entity: *expose
+      register: exposed
+
+    - name: Again
+      egors.homeassistant.exposed_entity: *expose
+      register: exposed_again
+
+    - name: Exposure behaved
+      ansible.builtin.assert:
+        that:
+          - expose_new_initial is not changed
+          - expose_new_initial.expose_new.conversation == true
+          - expose_new is changed
+          - expose_new.diff.before.conversation == true
+          - expose_new.expose_new.conversation == false
+          - expose_new_again is not changed
+          - expose_check is changed
+          - exposed is changed
+          - exposed.exposed['sensor.sun_next_dawn'].conversation == true
+          - exposed.exposed['sensor.sun_next_dawn'].alexa == false
+          - exposed.exposed['sensor.sun_next_dusk'].google_assistant == false
+          - exposed_again is not changed
+
+    # area_order / floor_order
+    - name: Read the areas
+      egors.homeassistant.area_info:
+      register: areas
+
+    - name: Put the bedroom first
+      egors.homeassistant.area_order: &area_order
+        order: [bedroom]
+      diff: true
+      register: area_order
+
+    - name: Again
+      egors.homeassistant.area_order: *area_order
+      register: area_order_again
+
+    - name: Unknown area
+      egors.homeassistant.area_order:
+        order: [ansible_test_nope]
+      register: area_order_unknown
+      ignore_errors: true
+
+    - name: Two floors
+      egors.homeassistant.floor:
+        name: "{{ item }}"
+      loop: [ansible_test_floor_a, ansible_test_floor_b]
+
+    - name: Put floor b first
+      egors.homeassistant.floor_order: &floor_order
+        order: [ansible_test_floor_b]
+      register: floor_order
+
+    - name: Again
+      egors.homeassistant.floor_order: *floor_order
+      register: floor_order_again
+
+    - name: Order behaved
+      ansible.builtin.assert:
+        that:
+          - area_order is changed == (areas.areas[0].area_id != 'bedroom')
+          - area_order.order[0] == 'bedroom'
+          - area_order.order | length == areas.areas | length
+          - area_order_again is not changed
+          - area_order_unknown is failed
+          - "'ansible_test_nope' in area_order_unknown.msg"
+          - floor_order is changed
+          - floor_order.order[:2] == ['ansible_test_floor_b', 'ansible_test_floor_a']
+          - floor_order_again is not changed
+
+    # energy_prefs
+    - name: Read the energy settings
+      egors.homeassistant.energy_prefs:
+      register: energy_initial
+
+    - name: Solar and a device
+      egors.homeassistant.energy_prefs: &energy
+        energy_sources:
+          - type: solar
+            stat_energy_from: sensor.ansible_test_solar
+        device_consumption:
+          - stat_consumption: sensor.ansible_test_dishwasher
+            name: Dishwasher
+      diff: true
+      register: energy
+
+    - name: Again
+      egors.homeassistant.energy_prefs: *energy
+      register: energy_again
+
+    - name: Only the devices change, the sources are kept
+      egors.homeassistant.energy_prefs:
+        device_consumption: []
+      register: energy_devices
+
+    - name: Invalid source
+      egors.homeassistant.energy_prefs:
+        energy_sources:
+          - type: grid
+            flow_from: []
+      register: energy_invalid
+      ignore_errors: true
+
+    - name: Energy behaved
+      ansible.builtin.assert:
+        that:
+          - energy_initial is not changed
+          - energy is changed
+          - energy.prefs.energy_sources[0].stat_energy_from == 'sensor.ansible_test_solar'
+          - energy.prefs.device_consumption[0].name == 'Dishwasher'
+          - energy_again is not changed
+          - energy_devices is changed
+          - energy_devices.prefs.device_consumption == []
+          - energy_devices.prefs.energy_sources | length == 1
+          - energy_invalid is failed
+
+  always:
+    - name: Unexpose the sun sensors
+      egors.homeassistant.exposed_entity:
+        entity_id: [sensor.sun_next_dawn, sensor.sun_next_dusk]
+        conversation: false
+
+    - name: Restore exposure of new entities
+      egors.homeassistant.expose_new_entities:
+        conversation: true
+
+    - name: Restore the area order
+      egors.homeassistant.area_order:
+        order: "{{ areas.areas | map(attribute='area_id') | list }}"
+      when: areas is defined and areas.areas is defined
+
+    - name: Delete the test floors
+      egors.homeassistant.floor:
+        name: "{{ item }}"
+        state: absent
+      loop: [ansible_test_floor_a, ansible_test_floor_b]
+
+    - name: Empty the energy settings
+      egors.homeassistant.energy_prefs:
+        energy_sources: []
+        device_consumption: []
