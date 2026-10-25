@@ -53,6 +53,8 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.automation`, `script`, `scene` | Manage a single automation, script or scene of the UI editor (whole config) |
 | `egors.homeassistant.dashboard` | Manage a dashboard (title, icon, sidebar, admin only) and its content; also the content of the default dashboard |
 | `egors.homeassistant.dashboard_resource` | Manage a dashboard resource (custom card JS/CSS) |
+| `egors.homeassistant.backup_config` | Automatic backup settings: locations, encryption key, schedule, retention (partial state) |
+| `egors.homeassistant.analytics` | Analytics preferences (partial state) |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -78,7 +80,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 | HTTP server: port, bind address, SSL, reverse proxy, IP bans, CORS | ✅ `http_config` | WS `http/config*` (trial, then promote) |
 | `customize`, `packages`, `allowlist_external_dirs`/`_urls`, `media_dirs`, `auth_providers`, `auth_mfa_modules`, `debug`, `webrtc` | ❌ | `homeassistant:` block in `configuration.yaml` |
 | Network adapters | 🟡 | WS `network/configure` |
-| Analytics preferences | 🟡 | WS `analytics/preferences`. `onboarding` leaves analytics off. |
+| Analytics preferences | ✅ `analytics` | WS `analytics/preferences`. `onboarding` leaves analytics off. |
 | Labs (preview features) | 🟡 | WS `labs/update` |
 
 ### Registries
@@ -130,7 +132,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 | Dashboards | ✅ `dashboard` | WS `lovelace/dashboards/*`, `lovelace/config/save` (content, whole document) |
 | Dashboard resources (custom cards) | ✅ `dashboard_resource` | WS `lovelace/resources/*` (in storage mode) |
 | Voice assistant pipelines | 🟡 | WS `assist_pipeline/pipeline/*` |
-| Backup schedule and retention | 🟡 | WS `backup/config/update` |
+| Backup schedule and retention | ✅ `backup_config` | WS `backup/config/update` |
 | Energy dashboard | 🟡 | WS `energy/save_prefs` |
 | Log level per integration | 🟡 | WS `logger/integration_log_level` (`persistence: permanent`) |
 | Default log level, log filters | ❌ | `logger:` in YAML |

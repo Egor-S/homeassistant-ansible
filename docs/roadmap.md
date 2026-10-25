@@ -63,3 +63,4 @@ setup (interactive). Revisit on request.
 | 8 | done | #11 |
 | 9 | done | #12 |
 | 10 | done | #13 |
+| 11a: `backup_config`, `analytics` | done | #14 |

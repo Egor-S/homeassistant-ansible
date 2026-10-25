@@ -1,0 +1,103 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Read the backup settings
+      egors.homeassistant.backup_config:
+      register: backup_initial
+
+    - name: Configure nightly backups in check mode
+      egors.homeassistant.backup_config: &backup
+        agent_ids: [backup.local]
+        include_database: false
+        password: ansible-test-backup-key
+        schedule_recurrence: daily
+        schedule_time: "4:45"
+        retention_copies: 3
+        automatic_backups_configured: true
+      check_mode: true
+      diff: true
+      register: backup_check
+
+    - name: Configure nightly backups
+      egors.homeassistant.backup_config: *backup
+      register: backup_set
+
+    - name: Configure them again
+      egors.homeassistant.backup_config: *backup
+      register: backup_again
+
+    - name: Set a retention in days, keeping the copies
+      egors.homeassistant.backup_config:
+        retention_days: 7
+        name: Nightly
+      register: backup_days
+
+    - name: Backup settings behaved
+      ansible.builtin.assert:
+        that:
+          - backup_initial is not changed
+          - backup_initial.config.schedule_recurrence == 'never'
+          - backup_check is changed
+          - "'password' not in backup_check.diff.after"
+          - "'ansible-test-backup-key' not in (backup_check | to_json)"
+          - backup_set is changed
+          - backup_set.config.agent_ids == ['backup.local']
+          - backup_set.config.password_set == true
+          - backup_set.config.schedule_time == '04:45:00'
+          - backup_set.config.retention_copies == 3
+          - backup_set.config.automatic_backups_configured == true
+          - "'ansible-test-backup-key' not in (backup_set | to_json)"
+          - backup_again is not changed
+          - backup_again.changed_options == []
+          - backup_days is changed
+          - backup_days.config.retention_copies == 3
+          - backup_days.config.retention_days == 7
+          - backup_days.config.name == 'Nightly'
+
+    - name: Read analytics
+      egors.homeassistant.analytics:
+      register: analytics_initial
+
+    - name: Share basic information and usage
+      egors.homeassistant.analytics: &analytics
+        base: true
+        usage: true
+      diff: true
+      register: analytics_set
+
+    - name: Again
+      egors.homeassistant.analytics: *analytics
+      register: analytics_again
+
+    - name: Analytics behaved
+      ansible.builtin.assert:
+        that:
+          - analytics_initial is not changed
+          - analytics_initial.preferences.base == false
+          - analytics_set is changed
+          - analytics_set.diff.before.usage == false
+          - analytics_set.preferences.base == true
+          - analytics_set.preferences.usage == true
+          - analytics_set.preferences.statistics == false
+          - analytics_again is not changed
+
+  always:
+    - name: Restore the backup defaults
+      egors.homeassistant.backup_config:
+        agent_ids: []
+        include_database: true
+        password: ""
+        name: ""
+        schedule_recurrence: never
+        schedule_time: ""
+        retention_copies: 0
+        retention_days: 0
+        automatic_backups_configured: false
+
+    - name: Restore the analytics defaults
+      egors.homeassistant.analytics:
+        base: false
+        usage: false

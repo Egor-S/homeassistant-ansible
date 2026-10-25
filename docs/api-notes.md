@@ -365,6 +365,17 @@ unique** and not normalised (`" probe"` next to `Probe`). `icon: null` clears. U
 - `lovelace/resources/list` -> `[{"id","url","type"}]`; `create`/`update` take `url` and **`res_type`**
   (`module`/`js`/`css`), `delete` `resource_id`. Unknown id -> `not_found`.
 
+## Backup settings (`backup/config/*`) and analytics
+
+- `backup/config/info` -> `{"config": {...}}` with `create_backup` (`agent_ids`, `include_database`,
+  `include_folders`, `include_addons`, `include_all_addons`, `name`, **`password` in plain text**), `retention`
+  (`copies`, `days`), `schedule` (`recurrence` `never`/`daily`/`custom_days`, `days` `mon`..`sun`, `time`), `agents`,
+  `automatic_backups_configured`, plus read-only `last_*`/`next_*`. The only agent on Core is `backup.local`.
+- `backup/config/update` -> `null`. `create_backup` and `schedule` merge field by field; **`retention` is replaced**
+  (`{"days": 7}` drops `copies`). `schedule.time` `"04:45"` is stored as `"04:45:00"`; `null` clears.
+- `analytics` -> `{"preferences": {"base","diagnostics","usage","statistics","snapshots"}, "onboarded"}`;
+  `analytics/preferences` (`preferences: {...}`) merges and returns `{"preferences": {...}}`.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.
