@@ -1,0 +1,60 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Create test floors
+      egors.homeassistant.floor:
+        name: "{{ item.name }}"
+        level: "{{ item.level }}"
+        icon: mdi:information
+        aliases: [zz, aa]
+      loop:
+        - {name: ansible_test_info, level: 0}
+        - {name: ansible_test_info_two, level: 2}
+
+    - name: List all floors
+      egors.homeassistant.floor_info:
+      register: all_floors
+
+    - name: List all floors in check mode
+      egors.homeassistant.floor_info:
+      check_mode: true
+      register: all_check
+
+    - name: Filter by name, case and whitespace insensitive
+      egors.homeassistant.floor_info:
+        name: " Ansible_Test_INFO "
+      register: by_name
+
+    - name: Filter by floor_id
+      egors.homeassistant.floor_info:
+        floor_id: ansible_test_info
+      register: by_id
+
+    - name: Filter by unknown name
+      egors.homeassistant.floor_info:
+        name: ansible_test_nope
+      register: by_unknown
+
+    - name: Results are as expected
+      ansible.builtin.assert:
+        that:
+          - all_floors is not changed
+          - all_floors.floors | map(attribute='floor_id') | intersect(['ansible_test_info', 'ansible_test_info_two']) | length == 2
+          - all_check.floors == all_floors.floors
+          - by_name.floors | length == 1
+          - by_name.floors[0].floor_id == 'ansible_test_info'
+          - by_name.floors[0].aliases == ['aa', 'zz']
+          - by_name.floors[0].icon == 'mdi:information'
+          - by_name.floors[0].level == 0
+          - by_name.floors[0].created_at is not defined
+          - by_id.floors == by_name.floors
+          - by_unknown.floors == []
+  always:
+    - name: Clean up
+      egors.homeassistant.floor:
+        name: "{{ item }}"
+        state: absent
+      loop: [ansible_test_info, ansible_test_info_two]

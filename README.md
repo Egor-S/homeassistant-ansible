@@ -28,6 +28,8 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.core_config` | Core configuration: name, location, units, time zone, URLs, ... (partial state) |
 | `egors.homeassistant.area` | Manage a single area (match by `area_id` or case-insensitive `name`) |
 | `egors.homeassistant.area_info` | List areas |
+| `egors.homeassistant.floor` | Manage a single floor (`level` may be 0 or negative) |
+| `egors.homeassistant.floor_info` | List floors |
 
 All modules except `onboarding` belong to the action group `egors.homeassistant.all`,
 so the connection is configured once with `module_defaults`. `onboarding` takes no

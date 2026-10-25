@@ -1,0 +1,240 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Remove leftovers of earlier runs
+      egors.homeassistant.floor:
+        name: "{{ item }}"
+        state: absent
+      loop: [ansible_test_floor, ansible_test_renamed]
+
+    - name: Create in check mode
+      egors.homeassistant.floor: &create_args
+        name: ansible_test_floor
+        icon: mdi:flask
+        aliases: [zeta, alpha]
+        level: 0
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Read floors after check mode
+      egors.homeassistant.floor_info:
+        name: ansible_test_floor
+      register: after_check
+
+    - name: Check mode predicted the floor without creating it
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.floor.aliases == ['alpha', 'zeta']
+          - create_check.floor.level == 0
+          - create_check.diff.before == {}
+          - after_check.floors == []
+
+    - name: Create with level 0
+      egors.homeassistant.floor: *create_args
+      register: created
+
+    - name: Create again
+      egors.homeassistant.floor: *create_args
+      register: created_again
+
+    - name: Idempotent with level as a string, reordered aliases and a differently written name
+      egors.homeassistant.floor:
+        name: "  ANSIBLE_TEST_FLOOR "
+        icon: mdi:flask
+        aliases: [alpha, zeta, alpha]
+        level: "0"
+      register: noop
+
+    - name: Level 0 is a value, not an unset option
+      ansible.builtin.assert:
+        that:
+          - created is changed
+          - created.floor.floor_id == 'ansible_test_floor'
+          - created.floor.level == 0
+          - created.floor.icon == 'mdi:flask'
+          - created.floor.aliases == ['alpha', 'zeta']
+          - created_again is not changed
+          - noop is not changed
+
+    - name: Omitting level keeps it
+      egors.homeassistant.floor:
+        name: ansible_test_floor
+        icon: mdi:flask-outline
+      register: keep_level
+
+    - name: Set a negative level
+      egors.homeassistant.floor: &minus
+        floor_id: ansible_test_floor
+        level: -1
+      register: minus
+
+    - name: Set it again
+      egors.homeassistant.floor: *minus
+      register: minus_again
+
+    - name: Clear the level
+      egors.homeassistant.floor: &clear
+        floor_id: ansible_test_floor
+        level: ""
+      register: cleared
+
+    - name: Clear again
+      egors.homeassistant.floor: *clear
+      register: cleared_again
+
+    - name: Set level back to 0
+      egors.homeassistant.floor:
+        floor_id: ansible_test_floor
+        level: 0
+      register: zero_again
+
+    - name: Level changes behaved
+      ansible.builtin.assert:
+        that:
+          - keep_level is changed
+          - keep_level.floor.level == 0
+          - keep_level.floor.icon == 'mdi:flask-outline'
+          - minus is changed
+          - minus.floor.level == -1
+          - minus_again is not changed
+          - cleared is changed
+          - cleared.floor.level is none
+          - cleared.floor.icon == 'mdi:flask-outline'
+          - cleared_again is not changed
+          - zero_again is changed
+          - zero_again.floor.level == 0
+
+    - name: Invalid level
+      egors.homeassistant.floor:
+        floor_id: ansible_test_floor
+        level: ground
+      register: bad_level
+      ignore_errors: true
+
+    - name: Boolean level
+      egors.homeassistant.floor:
+        floor_id: ansible_test_floor
+        level: true
+      register: bool_level
+      ignore_errors: true
+
+    - name: Clear icon and aliases
+      egors.homeassistant.floor:
+        floor_id: ansible_test_floor
+        icon: ""
+        aliases: []
+      register: cleared_other
+
+    - name: Rename via floor_id
+      egors.homeassistant.floor:
+        floor_id: ansible_test_floor
+        name: ansible_test_renamed
+      register: renamed
+
+    - name: Rename again
+      egors.homeassistant.floor:
+        floor_id: ansible_test_floor
+        name: ansible_test_renamed
+      register: renamed_again
+
+    - name: Unknown floor_id with state present
+      egors.homeassistant.floor:
+        floor_id: ansible_test_nope
+        name: whatever
+      register: missing_present
+      ignore_errors: true
+
+    - name: Unknown floor_id with state absent
+      egors.homeassistant.floor:
+        floor_id: ansible_test_nope
+        state: absent
+      register: missing_absent
+
+    - name: Empty name
+      egors.homeassistant.floor:
+        name: "   "
+      register: empty_name
+      ignore_errors: true
+
+    - name: Duplicate name
+      egors.homeassistant.floor:
+        name: ansible_test_other
+      register: other
+
+    - name: Rename onto an existing name
+      egors.homeassistant.floor:
+        floor_id: ansible_test_floor
+        name: " ANSIBLE_TEST_OTHER "
+      register: duplicate
+      ignore_errors: true
+
+    - name: Results are as expected
+      ansible.builtin.assert:
+        that:
+          - bad_level is failed
+          - "'integer' in bad_level.msg"
+          - bool_level is failed
+          - cleared_other.floor.icon is none
+          - cleared_other.floor.aliases == []
+          - cleared_other.floor.level == 0
+          - renamed is changed
+          - renamed.floor.floor_id == 'ansible_test_floor'
+          - renamed.floor.name == 'ansible_test_renamed'
+          - renamed_again is not changed
+          - missing_present is failed
+          - "'ansible_test_nope' in missing_present.msg"
+          - missing_absent is not changed
+          - empty_name is failed
+          - "'empty' in empty_name.msg"
+          - duplicate is failed
+          - "'already in use' in duplicate.msg"
+
+    - name: Delete in check mode
+      egors.homeassistant.floor: &delete_args
+        name: ansible_test_renamed
+        state: absent
+      check_mode: true
+      diff: true
+      register: delete_check
+
+    - name: Floor still exists
+      egors.homeassistant.floor_info:
+        floor_id: ansible_test_floor
+      register: still_there
+
+    - name: Delete
+      egors.homeassistant.floor: *delete_args
+      register: deleted
+
+    - name: Delete again
+      egors.homeassistant.floor: *delete_args
+      register: deleted_again
+
+    - name: Read floors after delete
+      egors.homeassistant.floor_info:
+        floor_id: ansible_test_floor
+      register: final
+
+    - name: Delete behaved
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - delete_check.floor == {}
+          - delete_check.diff.before.floor_id == 'ansible_test_floor'
+          - still_there.floors | length == 1
+          - deleted is changed
+          - deleted.floor == {}
+          - deleted_again is not changed
+          - final.floors == []
+
+  always:
+    - name: Clean up
+      egors.homeassistant.floor:
+        name: "{{ item }}"
+        state: absent
+      loop: [ansible_test_floor, ansible_test_renamed, ansible_test_other]

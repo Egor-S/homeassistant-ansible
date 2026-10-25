@@ -187,13 +187,31 @@ Entry shape (all `list`/`create`/`update` results):
   `invalid_info "Entity sensor.nope does not exist"` (validated!). `floor_id: "nofloor"` is **accepted and stored**
   (not validated); `labels: ["nolabel"]` is silently dropped to `[]`. `aliases: "str"` -> `invalid_format "expected list"`.
   `icon: "notmdi"` accepted (no format check).
-- Floors: `config/floor_registry/list` works, empty by default.
+- Floors: see the Floor registry section.
 
 ### Default areas (item j)
 Created at the `user` onboarding step (before `core_config`): **Living Room** (`living_room`, `mdi:sofa`),
 **Kitchen** (`kitchen`, `mdi:stove`), **Bedroom** (`bedroom`, `mdi:bed`); no aliases/floor/labels.
 Integration tests that create e.g. "Kitchen" will see "already exists"; use unique names
 (and don't assert an empty list).
+
+## Floor registry (`config/floor_registry/*`)
+
+Entry: `{"floor_id","name","aliases":[],"icon":null,"level":null,"created_at","modified_at"}`
+(`level` is an int or null; timestamps are float epoch seconds). Empty by default (no default floors).
+Same shape of commands as areas: `list`, `create` (`name` required; optional `aliases`, `icon`, `level`),
+`update` (`floor_id` required, rest optional), `delete` (`floor_id`).
+
+- `floor_id` = slugified name (`ansible_probe`); renaming keeps it.
+- `level`: `0` and negative values accepted and stored; `level: null` is accepted on **create and update** and
+  **clears** it; `level: "x"` -> `invalid_format "expected int or None at 'level'. Got 'x'"`.
+  So `0` must never be treated as "unset" (falsy) in the module.
+- `aliases`: set semantics as for areas (`["b","a","b"]` -> `["b","a"]`, order arbitrary).
+- `icon: null` clears on update; `name: null` -> `invalid_format`.
+- Duplicate name (casefold + strip, slug compare), also on update:
+  `invalid_info "The name   ANSIBLE_PROBE  (ansible_probe) is already in use"`.
+- Unknown `floor_id`: update -> `unknown_error "Unknown error"`; delete -> `invalid_info "Floor ID doesn't exist"`.
+- Unchanged update is a no-op (`modified_at` unchanged).
 
 ## Misc
 - `refresh_token` grant with wrong `client_id` -> `400 {"error":"invalid_request"}`.

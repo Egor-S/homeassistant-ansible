@@ -6,8 +6,8 @@
 """Generic logic for Home Assistant registry resources (areas, floors, labels, ...).
 
 A resource is described by the WebSocket command prefix (``config/area_registry``), the name of
-its id field (``area_id``) and its managed fields: ``strings`` (clearable, ``""`` clears) and
-``lists`` (compared as sets). ``name`` is always managed and required for creation.
+its id field (``area_id``) and its managed fields: ``strings`` (clearable, ``""`` clears),
+``lists`` (compared as sets) and ``ints`` (``""`` clears, ``0`` is a value). ``name`` is always managed and required for creation.
 """
 
 from __future__ import annotations
@@ -22,19 +22,34 @@ def normalize_name(name):
     return _SPACES.sub(" ", name.strip()).casefold()
 
 
-def normalize_entry(entry, id_field, strings, lists):
+def to_int_or_none(value):
+    """``""`` -> ``None``; an int or an integer string -> ``int``; anything else (also bool) -> ``ValueError``."""
+    if value == "":
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise ValueError(value)
+    return int(value)
+
+
+def normalize_entry(entry, id_field, strings, lists, ints=()):
     """Registry entry reduced to managed fields; lists sorted, absent strings as ``None``."""
     result = {id_field: entry.get(id_field), "name": entry.get("name")}
-    for field in strings:
+    for field in tuple(strings) + tuple(ints):
         result[field] = entry.get(field)
     for field in lists:
         result[field] = sorted(set(entry.get(field) or []))
     return result
 
 
-def desired_values(params, strings, lists):
-    """Provided managed options as ``{field: value}``; ``""`` becomes ``None``, lists become sorted sets."""
+def desired_values(params, strings, lists, ints=()):
+    """Provided managed options as ``{field: value}``; ``""`` becomes ``None``, lists become sorted sets.
+
+    Raises ``ValueError`` for an ``ints`` value that is not an integer.
+    """
     desired = {}
+    for field in ints:
+        if params.get(field) is not None:
+            desired[field] = to_int_or_none(params[field])
     for field in strings:
         if params.get(field) is not None:
             desired[field] = params[field] or None
@@ -58,15 +73,16 @@ def compute_changes(current, desired):
 
 
 class Registry:
-    def __init__(self, module, prefix, id_field, strings=(), lists=()):
+    def __init__(self, module, prefix, id_field, strings=(), lists=(), ints=()):
         self.module = module
         self.prefix = prefix
         self.id_field = id_field
         self.strings = tuple(strings)
         self.lists = tuple(lists)
+        self.ints = tuple(ints)
 
     def normalize(self, entry):
-        return normalize_entry(entry, self.id_field, self.strings, self.lists)
+        return normalize_entry(entry, self.id_field, self.strings, self.lists, self.ints)
 
     def list_entries(self):
         return self.module.call(self.prefix + "/list")
@@ -92,7 +108,10 @@ class Registry:
             module.fail_json(msg="name must not be empty")
         entry = find_entry(self.list_entries(), self.id_field, entry_id, name)
         before = self.normalize(entry) if entry else {}
-        desired = desired_values(params, self.strings, self.lists)
+        try:
+            desired = desired_values(params, self.strings, self.lists, self.ints)
+        except ValueError as e:
+            module.fail_json(msg="expected an integer or an empty string, got %s" % e)
 
         if params["state"] == "absent":
             after, changed = {}, entry is not None
@@ -104,7 +123,7 @@ class Registry:
                                  % (self.id_field, entry_id, self.id_field))
             if name is None:
                 module.fail_json(msg="name is required to create")
-            payload = dict((k, v) for k, v in desired.items() if v)
+            payload = dict((k, v) for k, v in desired.items() if v is not None and v != [])
             payload["name"] = name.strip()
             changed = True
             after = self.predict(None, payload)

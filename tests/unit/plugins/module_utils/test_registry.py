@@ -56,3 +56,24 @@ def test_compute_changes():
     assert compute_changes(current, {"icon": "mdi:stove", "aliases": ["a", "b"]}) == {}
     assert compute_changes(current, {"icon": None, "aliases": ["a"], "floor_id": None}) == {
         "icon": None, "aliases": ["a"]}
+
+
+def test_ints_zero_is_a_value_and_empty_string_clears():
+    assert desired_values({"level": 0}, (), (), ("level",)) == {"level": 0}
+    assert desired_values({"level": "-2"}, (), (), ("level",)) == {"level": -2}
+    assert desired_values({"level": ""}, (), (), ("level",)) == {"level": None}
+    assert desired_values({"level": None}, (), (), ("level",)) == {}
+
+
+@pytest.mark.parametrize("value", ["abc", True, 1.5, []])
+def test_ints_rejects_non_integers(value):
+    with pytest.raises(ValueError):
+        desired_values({"level": value}, (), (), ("level",))
+
+
+def test_normalize_entry_ints():
+    entry = {"floor_id": "f", "name": "F", "level": 0}
+    assert normalize_entry(entry, "floor_id", (), (), ("level",)) == {"floor_id": "f", "name": "F", "level": 0}
+    assert normalize_entry({}, "floor_id", (), (), ("level",))["level"] is None
+    assert compute_changes({"level": 0}, {"level": 0}) == {}
+    assert compute_changes({"level": 0}, {"level": None}) == {"level": None}

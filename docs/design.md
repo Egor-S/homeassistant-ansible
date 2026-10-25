@@ -89,7 +89,8 @@ assignments), hence opt-in.
 - `--check` on a never-onboarded instance cannot get past `onboarding` (no token
   yet to query anything else).
 - Generic registry logic (find/diff/create/update/delete, check mode, diff) lives
-  in `module_utils/registry.py`; `area.py` is ~20 lines of code plus docs.
+  in `module_utils/registry.py`; `area.py`/`floor.py` are ~20 lines of code plus docs.
+  Field kinds: `strings` and `ints` (`""` clears) and `lists` (set semantics).
 
 ## MVP status (2026-10-25, HA 2026.10.4)
 
@@ -99,9 +100,9 @@ assignments), hence opt-in.
    instance).
 4. ⏳ CI workflow written and every suite passes locally on ansible-core 2.20 and
    2.21; not yet run on GitHub Actions.
-5. 🟡 Expected: a floor/label module is `area.py` with a new argument spec and
-   `Registry(module, "config/floor_registry", "floor_id", ...)`. Not yet proven by
-   adding one.
+5. ✅ Proven by adding `floor`/`floor_info`: 19 lines of module code (area: 18).
+   `registry.py` needed one generic extension (an `ints` field kind for `level`)
+   and the second resource exposed a latent bug (create dropped `0` values).
 
 ## Open
 
