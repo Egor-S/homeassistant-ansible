@@ -265,6 +265,24 @@ the home zone and YAML zones are not in `zone/list`.
 - Unknown `zone_id`: update and delete -> `not_found "Unable to find zone_id <id>"`. Delete returns `null`.
 - Invalid latitude -> `invalid_format "invalid latitude at 'latitude'"`.
 
+## Helpers (`input_*/*`, `counter/*`, `timer/*`, `schedule/*`, storage collections)
+
+Same commands as zones (`<domain>/list|create|update|delete`, id field `<domain>_id`, entries carry `id`),
+names not unique (`P`, `P` -> `p`, `p_2`), unknown id -> `not_found`. Probed for every type on 2026.10.4.
+
+- **`update` replaces the whole item**: it validates the payload with the create schema and stores
+  `{id} | payload`. Omitted fields fall back to their defaults or disappear; required fields must always be
+  sent (`input_number/update` with only `icon` -> `invalid_format "required key not provided at 'max'..."`;
+  `schedule/update` without `monday` drops the Monday slots).
+- Defaults show up in the entry: `input_number` `step: 1.0`, `mode: slider` (`min`/`max` floats);
+  `input_text` `min: 0`, `max: 100`, `mode: text`; `counter` `initial: 0`, `step: 1`, `restore: true`,
+  `minimum`/`maximum: null`; `input_datetime` `has_date`/`has_time: false`; `timer` `restore: false`.
+  Optional fields without a default (`icon`, `initial`, `pattern`, ...) are absent.
+- `input_select.options`: order kept, duplicates -> `home_assistant_error "Duplicate options are not allowed"`.
+- Stored forms that differ from the input: `timer.duration` `"00:05:00"`, `90` and `{"minutes": 7}` become
+  `"H:MM:SS"` (`"0:05:00"`, `"0:01:30"`); `schedule` times `"7:00"` become `"07:00:00"`, and every weekday is
+  present (`[]` when empty); `input_datetime.initial` is stored verbatim (`"7:00"`).
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

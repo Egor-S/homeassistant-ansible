@@ -12,3 +12,10 @@ action_groups:
     - label_info
     - zone
     - zone_info
+    - counter
+    - input_boolean
+    - input_button
+    - input_number
+    - input_select
+    - input_text
+    - helper_info

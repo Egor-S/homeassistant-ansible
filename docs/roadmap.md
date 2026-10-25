@@ -14,7 +14,8 @@ They let a playbook describe a home from scratch.
 |---|---|---|---|
 | 1 | `label`, `label_info` | `config/label_registry/*` | Same shape as floors; reuses `module_utils/registry.py` as is. Fields `icon`, `color`, `description`. |
 | 2 | `zone`, `zone_info` | `zone/*` | Storage collection: id field `zone_id` on update/delete, `id` in entries. Needs a generic collection helper next to `registry.py`. Zones from YAML are not listed and can't be changed. |
-| 3 | Helpers | `input_boolean/*`, `input_number/*`, `input_text/*`, `input_select/*`, `input_datetime/*`, `input_button/*`, `counter/*`, `timer/*`, `schedule/*` | Same collection helper as zones. Decide in the PR: one module per helper type or one `helper` module with a `type` option. |
+| 3a | Helpers: `input_boolean`, `input_button`, `input_number`, `input_select`, `input_text`, `counter`, `helper_info` | `<domain>/*` | One typed module per type on the zone helper, with full-replace updates. |
+| 3b | Helpers: `input_datetime`, `timer`, `schedule` | `<domain>/*` | Need normalizers: HA rewrites durations and times (see api-notes). |
 | 4 | `person`, `tag` | `person/*`, `tag/*` | Collections. `person.user_id` links to a user (see #8). |
 
 ## Tier 2: settings on existing objects
@@ -53,3 +54,4 @@ setup (interactive). Revisit on request.
 |---|---|---|
 | 1 | done | #3 |
 | 2 | done | #4 |
+| 3a | done | #5 |
