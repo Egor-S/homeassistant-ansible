@@ -1,0 +1,8 @@
+.venv/
+tests/output/
+*.tar.gz
+__pycache__/
+*.pyc
+tests/integration/integration_config.yml
+*.token
+.token

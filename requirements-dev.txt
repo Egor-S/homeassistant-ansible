@@ -1,0 +1,6 @@
+ansible-core
+websocket-client
+antsibull-changelog
+pytest
+pytest-xdist
+pytest-mock

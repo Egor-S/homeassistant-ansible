@@ -1,0 +1,32 @@
+namespace: egors
+name: homeassistant
+version: 0.1.0
+readme: README.md
+authors:
+  - Egor Sklyarov <egor.sklyarov.ru@gmail.com>
+description: Ansible modules to provision and configure Home Assistant over its REST and WebSocket APIs.
+license:
+  - GPL-3.0-or-later
+tags:
+  - homeassistant
+  - home_automation
+  - iot
+repository: https://github.com/Egor-S/homeassistant-ansible
+documentation: https://github.com/Egor-S/homeassistant-ansible/blob/main/docs/design.md
+homepage: https://github.com/Egor-S/homeassistant-ansible
+issues: https://github.com/Egor-S/homeassistant-ansible/issues
+dependencies: {}
+build_ignore:
+  - .venv
+  - .git
+  - .github
+  - .gitignore
+  - tests/output
+  - docs
+  - scripts
+  - docker-compose.yml
+  - requirements-dev.txt
+  - "*.tar.gz"
+  - "*.token"
+  - .token
+  - __pycache__
