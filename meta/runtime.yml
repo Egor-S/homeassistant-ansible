@@ -39,3 +39,5 @@ action_groups:
     - scene
     - dashboard
     - dashboard_resource
+    - backup_config
+    - analytics

@@ -61,6 +61,8 @@ time. Support for older versions may be added later.
 | `automation`, `script`, `scene` | document | REST config editor (`module_utils/config_editor.py`). `config` is the whole item and is compared as a whole (HA stores what was posted; automations and scenes add `id`, which is stripped). HA reloads in the background after a write. No `*_info` modules yet. |
 | `dashboard` | item + document | Found by `url_path` (user-chosen; commands take the derived `dashboard_id`). Settings are partial; `config` (content) is a whole document, compared as a whole. `url_path: lovelace` is the default dashboard: content only, `state: absent` deletes the content. |
 | `dashboard_resource` | collection item | Found by `resource_url` (the option can't be `url`, which is the connection URL). |
+| `backup_config` | singleton | Partial state with flat options (`retention_days`, `schedule_time`, ...) mapped onto the nested settings (`module_utils/backup.py`). `retention` is sent complete (HA replaces it). The password is compared but never returned (`password_set` instead). |
+| `analytics` | singleton | Partial state; HA merges the preferences. |
 | `http_config` | singleton | **Partial** state like `core_config`, but `http/config/configure` replaces the whole config, so stable plus changes is sent. A change restarts HA into a 5-minute trial; the module waits for the WS connection to drop, reconnects (`reconnect_url`, for port/TLS changes) until `RUNNING`, checks HA runs on the new config, then promotes it. An unreachable result reverts itself. |
 
 Deferred: a set-level module (`areas` with `purge`, default `false`) once the
