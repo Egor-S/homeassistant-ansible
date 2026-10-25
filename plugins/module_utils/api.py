@@ -304,6 +304,14 @@ class HomeAssistantModule(AnsibleModule):
         except HomeAssistantError as exc:
             self.fail_json(msg=str(exc))
 
+    def rest(self, path, method="GET", data=None):
+        """Authenticated REST call: ``(status, decoded_json)``; transport errors fail the module."""
+        try:
+            return rest_request(self.params["url"], path, method=method, data=data, token=self.params["token"],
+                                timeout=self.params["timeout"], validate_certs=self.params["validate_certs"])
+        except HomeAssistantError as exc:
+            self.fail_json(msg=str(exc))
+
     def call_optional(self, command, **params):
         """Like ``call``, but return ``None`` when Home Assistant answers ``not_found``."""
         try:
