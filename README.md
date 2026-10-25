@@ -51,6 +51,8 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.user` | Manage a single user with username and password (admin, active, local only) |
 | `egors.homeassistant.user_info` | List users |
 | `egors.homeassistant.automation`, `script`, `scene` | Manage a single automation, script or scene of the UI editor (whole config) |
+| `egors.homeassistant.dashboard` | Manage a dashboard (title, icon, sidebar, admin only) and its content; also the content of the default dashboard |
+| `egors.homeassistant.dashboard_resource` | Manage a dashboard resource (custom card JS/CSS) |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -125,8 +127,8 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 |---|---|---|
 | Automations, scripts, scenes | ✅ `automation`, `script`, `scene` | REST `/api/config/{automation,script,scene}/config/{id}`. Writes `automations.yaml`, `scripts.yaml` and `scenes.yaml` on the HA host. |
 | Blueprints | 🟡 | WS `blueprint/{import,save,delete}` |
-| Dashboards | 🟡 | WS `lovelace/dashboards/{list,create,update,delete}`, `lovelace/config/save` (content) |
-| Dashboard resources (custom cards) | 🟡 | WS `lovelace/resources/*` (in storage mode) |
+| Dashboards | ✅ `dashboard` | WS `lovelace/dashboards/*`, `lovelace/config/save` (content, whole document) |
+| Dashboard resources (custom cards) | ✅ `dashboard_resource` | WS `lovelace/resources/*` (in storage mode) |
 | Voice assistant pipelines | 🟡 | WS `assist_pipeline/pipeline/*` |
 | Backup schedule and retention | 🟡 | WS `backup/config/update` |
 | Energy dashboard | 🟡 | WS `energy/save_prefs` |
