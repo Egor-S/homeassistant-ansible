@@ -325,6 +325,23 @@ unique** and not normalised (`" probe"` next to `Probe`). `icon: null` clears. U
 `invalid_info "Category ID doesn't exist"`. Entities are put in a category via
 `config/entity_registry/update` `categories: {scope: category_id}`.
 
+## Users (`config/auth/*`, `config/auth_provider/homeassistant/*`)
+
+- `config/auth/list` -> users with `id`, `username` (null without credentials), `name`, `is_owner`, `is_active`,
+  `local_only`, `system_generated`, `group_ids`, `credentials`. A fresh HA has the owner and the system user
+  "Home Assistant Content" (`system-read-only`).
+- `config/auth/create` (`name`, optional `group_ids`, `local_only`) -> `{"user": {...}}` **with `group_ids: []`**
+  unless given (the UI sends `system-users`). Credentials are a separate call:
+  `config/auth_provider/homeassistant/create` (`user_id`, `username`, `password`) -> `null`. Username must be
+  normalised (`strip().casefold()`): `"Probe5"` -> `home_assistant_error "... is not normalized"`; taken ->
+  `"Username ... already exists"`; second credentials -> `credentials_exist`.
+- `config/auth/update` (`user_id` + `name`, `is_active`, `group_ids`, `local_only`) -> `{"user": {...}}`.
+  **An unknown group ID makes the handler raise without answering** (`KeyError: 'id'` in the HA log), so the
+  client waits until its timeout.
+- `.../admin_change_password` (`user_id`, `password`) -> `null`; `.../admin_change_username` exists too.
+- `config/auth/delete` -> `null`; own user -> `no_delete_self`; unknown -> `not_found "User not found"`.
+- A wrong password at `/auth/login_flow` goes through `process_wrong_login` (notification, IP-ban counter).
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

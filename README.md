@@ -48,6 +48,8 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.device_info` | List devices of the device registry |
 | `egors.homeassistant.category` | Manage a single category of one scope (automation, script, ...) |
 | `egors.homeassistant.category_info` | List categories of one scope |
+| `egors.homeassistant.user` | Manage a single user with username and password (admin, active, local only) |
+| `egors.homeassistant.user_info` | List users |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -93,8 +95,8 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 
 | Setting | Status | API / notes |
 |---|---|---|
-| Users (create, groups such as admin, local-only, active, delete) | 🟡 | WS `config/auth/*`, `config/auth_provider/homeassistant/*` (credentials, passwords) |
-| People | ✅ `person`, `person_info` | WS `person/*`. The user is linked by `user_id` for now. |
+| Users (create, admin, local-only, active, password, delete) | ✅ `user`, `user_info` | WS `config/auth/*`, `config/auth_provider/homeassistant/*`. Renaming a username isn't supported. |
+| People | ✅ `person`, `person_info` | WS `person/*`. The user is linked by `user_id` (from `user`). |
 | Zones | ✅ `zone`, `zone_info` | WS `zone/*`. The home zone comes from `core_config`. |
 | Tags | ✅ `tag`, `tag_info` | WS `tag/*` |
 | MFA for a user | ❌ | Interactive (`auth/setup_mfa`) |
