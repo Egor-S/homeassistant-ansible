@@ -15,7 +15,7 @@ description:
   - Creates, updates and deletes labels.
   - Only the options that are set are managed; other properties of an existing label are left unchanged.
   - The label is found by O(label_id) if given, otherwise by O(name), ignoring case and surrounding or repeated whitespace.
-  - Labels are assigned to areas with the O(egors.homeassistant.area#module:area:labels) option of the area module.
+  - Labels are assigned to areas with the O(egors.homeassistant.area#module:labels) option of the area module.
 extends_documentation_fragment:
   - egors.homeassistant.connection
 options:
