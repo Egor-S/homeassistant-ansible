@@ -1,0 +1,229 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Remove leftovers of earlier runs
+      egors.homeassistant.label:
+        name: "{{ item }}"
+        state: absent
+      loop: [ansible_test_label, ansible_test_renamed, ansible_test_other]
+
+    - name: Remove the area of earlier runs
+      egors.homeassistant.area:
+        name: ansible_test_label_area
+        state: absent
+
+    - name: Create in check mode
+      egors.homeassistant.label: &create_args
+        name: ansible_test_label
+        icon: mdi:tag
+        color: green
+        description: Test label
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Read labels after check mode
+      egors.homeassistant.label_info:
+        name: ansible_test_label
+      register: after_check
+
+    - name: Check mode predicted the label without creating it
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.label.label_id is none
+          - create_check.label.color == 'green'
+          - create_check.diff.before == {}
+          - after_check.labels == []
+
+    - name: Create
+      egors.homeassistant.label: *create_args
+      register: created
+
+    - name: Create again
+      egors.homeassistant.label: *create_args
+      register: created_again
+
+    - name: Idempotent with a differently written name
+      egors.homeassistant.label:
+        name: "  ANSIBLE_TEST_LABEL "
+        color: green
+      register: noop
+
+    - name: Create behaved
+      ansible.builtin.assert:
+        that:
+          - created is changed
+          - created.label.label_id == 'ansible_test_label'
+          - created.label.name == 'ansible_test_label'
+          - created.label.icon == 'mdi:tag'
+          - created.label.color == 'green'
+          - created.label.description == 'Test label'
+          - created_again is not changed
+          - noop is not changed
+
+    - name: Hex color
+      egors.homeassistant.label: &hex
+        label_id: ansible_test_label
+        color: "#ff8800"
+      register: hex
+
+    - name: Hex color again
+      egors.homeassistant.label: *hex
+      register: hex_again
+
+    - name: Invalid color
+      egors.homeassistant.label:
+        label_id: ansible_test_label
+        color: bogus
+      register: bad_color
+      ignore_errors: true
+
+    - name: Clear icon, color and description
+      egors.homeassistant.label: &clear
+        label_id: ansible_test_label
+        icon: ""
+        color: ""
+        description: ""
+      diff: true
+      register: cleared
+
+    - name: Clear again
+      egors.homeassistant.label: *clear
+      register: cleared_again
+
+    - name: Updates behaved
+      ansible.builtin.assert:
+        that:
+          - hex is changed
+          - hex.label.color == '#ff8800'
+          - hex_again is not changed
+          - bad_color is failed
+          - "'color' in bad_color.msg"
+          - cleared is changed
+          - cleared.diff.before.color == '#ff8800'
+          - cleared.label.icon is none
+          - cleared.label.color is none
+          - cleared.label.description is none
+          - cleared_again is not changed
+
+    - name: Assign the label to an area
+      egors.homeassistant.area:
+        name: ansible_test_label_area
+        labels: [ansible_test_label]
+      register: area
+
+    - name: The area kept the label (no warning about a dropped label)
+      ansible.builtin.assert:
+        that:
+          - area is changed
+          - area.area.labels == ['ansible_test_label']
+          - area.warnings is not defined
+
+    - name: Rename via label_id
+      egors.homeassistant.label:
+        label_id: ansible_test_label
+        name: ansible_test_renamed
+      register: renamed
+
+    - name: Rename again
+      egors.homeassistant.label:
+        label_id: ansible_test_label
+        name: ansible_test_renamed
+      register: renamed_again
+
+    - name: Unknown label_id with state present
+      egors.homeassistant.label:
+        label_id: ansible_test_nope
+        name: whatever
+      register: missing_present
+      ignore_errors: true
+
+    - name: Unknown label_id with state absent
+      egors.homeassistant.label:
+        label_id: ansible_test_nope
+        state: absent
+      register: missing_absent
+
+    - name: Another label
+      egors.homeassistant.label:
+        name: ansible_test_other
+
+    - name: Rename onto an existing name
+      egors.homeassistant.label:
+        label_id: ansible_test_label
+        name: " ANSIBLE_TEST_OTHER "
+      register: duplicate
+      ignore_errors: true
+
+    - name: Results are as expected
+      ansible.builtin.assert:
+        that:
+          - renamed is changed
+          - renamed.label.label_id == 'ansible_test_label'
+          - renamed.label.name == 'ansible_test_renamed'
+          - renamed_again is not changed
+          - missing_present is failed
+          - "'ansible_test_nope' in missing_present.msg"
+          - missing_absent is not changed
+          - duplicate is failed
+          - "'already in use' in duplicate.msg"
+
+    - name: Delete in check mode
+      egors.homeassistant.label: &delete_args
+        name: ansible_test_renamed
+        state: absent
+      check_mode: true
+      diff: true
+      register: delete_check
+
+    - name: Label still exists
+      egors.homeassistant.label_info:
+        label_id: ansible_test_label
+      register: still_there
+
+    - name: Delete
+      egors.homeassistant.label: *delete_args
+      register: deleted
+
+    - name: Delete again
+      egors.homeassistant.label: *delete_args
+      register: deleted_again
+
+    - name: Read labels and the area after delete
+      egors.homeassistant.label_info:
+        label_id: ansible_test_label
+      register: final
+
+    - name: Read the area after delete
+      egors.homeassistant.area_info:
+        name: ansible_test_label_area
+      register: area_after
+
+    - name: Delete behaved
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - delete_check.label == {}
+          - delete_check.diff.before.label_id == 'ansible_test_label'
+          - still_there.labels | length == 1
+          - deleted is changed
+          - deleted.label == {}
+          - deleted_again is not changed
+          - final.labels == []
+          - area_after.areas[0].labels == []
+
+  always:
+    - name: Clean up labels
+      egors.homeassistant.label:
+        name: "{{ item }}"
+        state: absent
+      loop: [ansible_test_label, ansible_test_renamed, ansible_test_other]
+
+    - name: Clean up the area
+      egors.homeassistant.area:
+        name: ansible_test_label_area
+        state: absent

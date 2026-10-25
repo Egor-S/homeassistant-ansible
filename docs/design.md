@@ -48,6 +48,7 @@ time. Support for older versions may be added later.
 | `area_info` | info | Lists areas. |
 | `floor` | collection item | Same shape as `area`: match by `floor_id`, else case-insensitive `name`. Fields: `name`, `aliases` (set semantics), `icon`, `level` (int). |
 | `floor_info` | info | Lists floors. |
+| `label` / `label_info` | collection item / info | Same shape as `floor` (match by `label_id`, else name). Fields: `name`, `icon`, `color` (hex or theme color), `description`. |
 | `http_config` | singleton | **Partial** state like `core_config`, but `http/config/configure` replaces the whole config, so stable plus changes is sent. A change restarts HA into a 5-minute trial; the module waits for the WS connection to drop, reconnects (`reconnect_url`, for port/TLS changes) until `RUNNING`, checks HA runs on the new config, then promotes it. An unreachable result reverts itself. |
 
 Deferred: a set-level module (`areas` with `purge`, default `false`) once the
