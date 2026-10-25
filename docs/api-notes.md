@@ -376,6 +376,16 @@ unique** and not normalised (`" probe"` next to `Probe`). `icon: null` clears. U
 - `analytics` -> `{"preferences": {"base","diagnostics","usage","statistics","snapshots"}, "onboarded"}`;
   `analytics/preferences` (`preferences: {...}`) merges and returns `{"preferences": {...}}`.
 
+## Logger and network
+
+- `logger/log_info` -> `[{"domain", "level"}]` for every loaded integration, the **effective** level (30 by default).
+  `logger/integration_log_level` (`integration`, `level` upper case `DEBUG`..`CRITICAL`/`NOTSET`, `persistence`
+  `none`/`once`/`permanent`) -> `null`; not loaded -> `not_found "Integration not found"`; `NOTSET` falls back to the
+  default level. `logger/log_level` does the same for a Python logger name (`module`).
+- `network` -> `{"adapters": [{"name","index","enabled","auto","default","ipv4","ipv6"}], "configured_adapters": []}`
+  (`[]` = automatic). `network/configure` (`config: {"configured_adapters": [...]}`) -> the new config;
+  **unknown adapter names are stored as given**.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

@@ -63,6 +63,8 @@ time. Support for older versions may be added later.
 | `dashboard_resource` | collection item | Found by `resource_url` (the option can't be `url`, which is the connection URL). |
 | `backup_config` | singleton | Partial state with flat options (`retention_days`, `schedule_time`, ...) mapped onto the nested settings (`module_utils/backup.py`). `retention` is sent complete (HA replaces it). The password is compared but never returned (`password_set` instead). |
 | `analytics` | singleton | Partial state; HA merges the preferences. |
+| `logger_level` | setting | Compares with the integration's current level from `logger/log_info` (the only readable value; HA doesn't expose which levels are stored), then sets it with `persistence: permanent`. No "default" level: with `NOTSET` the result can't be told apart from a YAML level. |
+| `network` | singleton | `configured_adapters` as a set; names are checked against the host's adapters because HA stores unknown ones. |
 | `http_config` | singleton | **Partial** state like `core_config`, but `http/config/configure` replaces the whole config, so stable plus changes is sent. A change restarts HA into a 5-minute trial; the module waits for the WS connection to drop, reconnects (`reconnect_url`, for port/TLS changes) until `RUNNING`, checks HA runs on the new config, then promotes it. An unreachable result reverts itself. |
 
 Deferred: a set-level module (`areas` with `purge`, default `false`) once the

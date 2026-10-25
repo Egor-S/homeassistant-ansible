@@ -1,0 +1,78 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Debug logging for sun in check mode
+      egors.homeassistant.logger_level: &debug
+        integration: sun
+        level: debug
+      check_mode: true
+      diff: true
+      register: debug_check
+
+    - name: Debug logging for sun
+      egors.homeassistant.logger_level: *debug
+      register: debug
+
+    - name: Again
+      egors.homeassistant.logger_level: *debug
+      register: debug_again
+
+    - name: An integration that is not loaded
+      egors.homeassistant.logger_level:
+        integration: ansible_test_nope
+        level: debug
+      register: not_loaded
+      ignore_errors: true
+
+    - name: Logger behaved
+      ansible.builtin.assert:
+        that:
+          - debug_check is changed
+          - debug_check.diff.before.level == 'warning'
+          - debug is changed
+          - debug_again is not changed
+          - not_loaded is failed
+          - "'not loaded' in not_loaded.msg"
+
+    - name: Read the network adapters
+      egors.homeassistant.network:
+      register: network
+
+    - name: Use the default adapter only
+      egors.homeassistant.network: &adapter
+        adapters: ["{{ (network.adapters | selectattr('default') | first).name }}"]
+      register: adapter
+
+    - name: Again
+      egors.homeassistant.network: *adapter
+      register: adapter_again
+
+    - name: An unknown adapter
+      egors.homeassistant.network:
+        adapters: [ansible_nope0]
+      register: unknown_adapter
+      ignore_errors: true
+
+    - name: Network behaved
+      ansible.builtin.assert:
+        that:
+          - network is not changed
+          - network.configured_adapters == []
+          - adapter is changed
+          - adapter.configured_adapters | length == 1
+          - adapter_again is not changed
+          - unknown_adapter is failed
+          - "'unknown adapters ansible_nope0' in unknown_adapter.msg"
+
+  always:
+    - name: Back to the warning level
+      egors.homeassistant.logger_level:
+        integration: sun
+        level: warning
+
+    - name: Back to automatic adapters
+      egors.homeassistant.network:
+        adapters: []
