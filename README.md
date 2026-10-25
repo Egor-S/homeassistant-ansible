@@ -34,6 +34,8 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.floor_info` | List floors |
 | `egors.homeassistant.label` | Manage a single label (icon, color, description) |
 | `egors.homeassistant.label_info` | List labels |
+| `egors.homeassistant.zone` | Manage a single zone (location, radius, passive, icon) |
+| `egors.homeassistant.zone_info` | List zones |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -81,7 +83,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 |---|---|---|
 | Users (create, groups such as admin, local-only, active, delete) | 🟡 | WS `config/auth/*`, `config/auth_provider/homeassistant/*` (credentials, passwords) |
 | People | 🟡 | WS `person/{list,create,update,delete}` |
-| Zones | 🟡 | WS `zone/{list,create,update,delete}`. The home zone comes from `core_config`. |
+| Zones | ✅ `zone`, `zone_info` | WS `zone/*`. The home zone comes from `core_config`. |
 | Tags | 🟡 | WS `tag/{list,create,update,delete}` |
 | MFA for a user | ❌ | Interactive (`auth/setup_mfa`) |
 

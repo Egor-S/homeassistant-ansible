@@ -10,3 +10,5 @@ action_groups:
     - floor_info
     - label
     - label_info
+    - zone
+    - zone_info

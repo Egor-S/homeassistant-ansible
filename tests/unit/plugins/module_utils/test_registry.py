@@ -10,6 +10,7 @@ import pytest
 from ansible_collections.egors.homeassistant.plugins.module_utils.registry import (
     compute_changes,
     desired_values,
+    find_entries,
     find_entry,
     normalize_entry,
     normalize_name,
@@ -77,3 +78,17 @@ def test_normalize_entry_ints():
     assert normalize_entry({}, "floor_id", (), (), ("level",))["level"] is None
     assert compute_changes({"level": 0}, {"level": 0}) == {}
     assert compute_changes({"level": 0}, {"level": None}) == {"level": None}
+
+
+def test_values_and_entry_key():
+    entry = {"id": "office", "name": "Office", "radius": 100.0, "passive": False}
+    assert normalize_entry(entry, "zone_id", (), (), values=("radius", "passive"), entry_key="id") == {
+        "zone_id": "office", "name": "Office", "radius": 100.0, "passive": False}
+    assert desired_values({"radius": 0.0, "passive": False, "x": None}, (), (), values=("radius", "passive", "x")) == {
+        "radius": 0.0, "passive": False}
+
+
+def test_find_entries_returns_all_name_matches():
+    entries = [{"id": "a", "name": "Gym"}, {"id": "b", "name": " gym"}, {"id": "c", "name": "Pool"}]
+    assert [e["id"] for e in find_entries(entries, "id", name="GYM")] == ["a", "b"]
+    assert [e["id"] for e in find_entries(entries, "id", entry_id="c")] == ["c"]

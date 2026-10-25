@@ -251,6 +251,20 @@ Same commands as floors (`list`, `create`, `update`, `delete` by `label_id`); no
   -> `unknown_error`, delete -> `invalid_info "Label ID doesn't exist"`. Delete returns `null`.
 - Deleting a label removes it from the areas that had it.
 
+## Zones (`zone/*`, storage collection)
+
+Entry: `{"id","name","latitude","longitude","radius","passive"}` plus `icon` only when set. Empty by default;
+the home zone and YAML zones are not in `zone/list`.
+
+- `create`: `name`, `latitude`, `longitude` required; `radius` defaults to `100.0`, `passive` to `false`.
+  Returned values are floats (`radius: 250` -> `250.0`).
+- `update` and `delete` take `zone_id` (the entry's `id`); `update` merges the given fields into the entry.
+- **Names are not unique**: a second `Probe` gets `id` `probe_2`.
+- `icon: null` -> `invalid_format "Icons should be specified in the form \"prefix:name\""`: an icon can't be
+  removed once set (no field can be).
+- Unknown `zone_id`: update and delete -> `not_found "Unable to find zone_id <id>"`. Delete returns `null`.
+- Invalid latitude -> `invalid_format "invalid latitude at 'latitude'"`.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

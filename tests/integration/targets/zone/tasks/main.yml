@@ -1,0 +1,206 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Read zones of earlier runs
+      egors.homeassistant.zone_info:
+      register: leftovers
+
+    - name: Remove leftovers of earlier runs
+      egors.homeassistant.zone:
+        zone_id: "{{ item.zone_id }}"
+        state: absent
+      loop: "{{ leftovers.zones | selectattr('name', 'match', 'ansible_test') | list }}"
+
+    - name: Create without coordinates
+      egors.homeassistant.zone:
+        name: ansible_test_zone
+      register: no_coords
+      ignore_errors: true
+
+    - name: Create in check mode
+      egors.homeassistant.zone: &create_args
+        name: ansible_test_zone
+        latitude: 60.1699
+        longitude: 24.9384
+        icon: mdi:briefcase
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Read zones after check mode
+      egors.homeassistant.zone_info:
+        name: ansible_test_zone
+      register: after_check
+
+    - name: Check mode predicted the zone without creating it
+      ansible.builtin.assert:
+        that:
+          - no_coords is failed
+          - "'latitude and longitude are required' in no_coords.msg"
+          - create_check is changed
+          - create_check.zone.zone_id is none
+          - create_check.zone.latitude == 60.1699
+          - create_check.diff.before == {}
+          - after_check.zones == []
+
+    - name: Create
+      egors.homeassistant.zone: *create_args
+      register: created
+
+    - name: Create again
+      egors.homeassistant.zone: *create_args
+      register: created_again
+
+    - name: Idempotent with HA defaults spelled out and an integer radius
+      egors.homeassistant.zone:
+        name: " ANSIBLE_TEST_ZONE"
+        radius: 100
+        passive: false
+      register: noop
+
+    - name: Create behaved
+      ansible.builtin.assert:
+        that:
+          - created is changed
+          - created.zone.zone_id == 'ansible_test_zone'
+          - created.zone.radius == 100.0
+          - created.zone.passive == false
+          - created.zone.icon == 'mdi:briefcase'
+          - created_again is not changed
+          - noop is not changed
+
+    - name: Change radius, passive and location
+      egors.homeassistant.zone: &update
+        zone_id: ansible_test_zone
+        radius: 250.5
+        passive: true
+        latitude: -33.8688
+        longitude: 151.2093
+      diff: true
+      register: updated
+
+    - name: Change again
+      egors.homeassistant.zone: *update
+      register: updated_again
+
+    - name: Remove the icon
+      egors.homeassistant.zone:
+        zone_id: ansible_test_zone
+        icon: ""
+      register: no_icon
+      ignore_errors: true
+
+    - name: Invalid latitude
+      egors.homeassistant.zone:
+        zone_id: ansible_test_zone
+        latitude: 999
+      register: bad_latitude
+      ignore_errors: true
+
+    - name: Updates behaved
+      ansible.builtin.assert:
+        that:
+          - updated is changed
+          - updated.diff.before.radius == 100.0
+          - updated.zone.radius == 250.5
+          - updated.zone.passive == true
+          - updated.zone.latitude == -33.8688
+          - updated.zone.icon == 'mdi:briefcase'
+          - updated_again is not changed
+          - no_icon is failed
+          - "'can not be removed' in no_icon.msg"
+          - bad_latitude is failed
+          - "'latitude' in bad_latitude.msg"
+
+    - name: Another zone
+      egors.homeassistant.zone:
+        name: ansible_test_other
+        latitude: 1
+        longitude: 2
+      register: other
+
+    - name: Rename the other zone onto the same name (HA allows duplicate zone names)
+      egors.homeassistant.zone:
+        zone_id: ansible_test_other
+        name: ansible_test_zone
+      register: duplicate
+
+    - name: Update by an ambiguous name
+      egors.homeassistant.zone:
+        name: ansible_test_zone
+        radius: 10
+      register: ambiguous
+      ignore_errors: true
+
+    - name: Info returns both
+      egors.homeassistant.zone_info:
+        name: ansible_test_zone
+      register: both
+
+    - name: Duplicate names behaved
+      ansible.builtin.assert:
+        that:
+          - other is changed
+          - duplicate is changed
+          - duplicate.zone.zone_id == 'ansible_test_other'
+          - ambiguous is failed
+          - "'2 entries' in ambiguous.msg"
+          - both.zones | map(attribute='zone_id') | sort == ['ansible_test_other', 'ansible_test_zone']
+
+    - name: Delete in check mode
+      egors.homeassistant.zone: &delete_args
+        zone_id: ansible_test_zone
+        state: absent
+      check_mode: true
+      diff: true
+      register: delete_check
+
+    - name: Zone still exists
+      egors.homeassistant.zone_info:
+        zone_id: ansible_test_zone
+      register: still_there
+
+    - name: Delete
+      egors.homeassistant.zone: *delete_args
+      register: deleted
+
+    - name: Delete again
+      egors.homeassistant.zone: *delete_args
+      register: deleted_again
+
+    - name: Delete the other one by its now unique name
+      egors.homeassistant.zone:
+        name: ansible_test_zone
+        state: absent
+      register: deleted_other
+
+    - name: Read zones after delete
+      egors.homeassistant.zone_info:
+        name: ansible_test_zone
+      register: final
+
+    - name: Delete behaved
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - delete_check.zone == {}
+          - delete_check.diff.before.zone_id == 'ansible_test_zone'
+          - still_there.zones | length == 1
+          - deleted is changed
+          - deleted_again is not changed
+          - deleted_other is changed
+          - final.zones == []
+
+  always:
+    - name: Read zones
+      egors.homeassistant.zone_info:
+      register: remaining
+
+    - name: Clean up
+      egors.homeassistant.zone:
+        zone_id: "{{ item.zone_id }}"
+        state: absent
+      loop: "{{ remaining.zones | selectattr('name', 'match', 'ansible_test') | list }}"
