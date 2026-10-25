@@ -9,8 +9,11 @@ import pytest
 
 from ansible_collections.egors.homeassistant.plugins.module_utils.api import (
     MIN_HA_VERSION,
+    derive_client_id,
+    is_valid_client_id,
     is_version_supported,
     parse_version,
+    redirect_uri,
     websocket_url,
 )
 
@@ -49,3 +52,23 @@ def test_is_version_supported(version, expected):
 ])
 def test_websocket_url(url, expected):
     assert websocket_url(url) == expected
+
+
+@pytest.mark.parametrize("url", ["http://127.0.0.1:8123", "http://127.0.0.1:8123/", "http://127.0.0.1:8123//"])
+def test_derive_client_id(url):
+    assert derive_client_id(url) == "http://127.0.0.1:8123/"
+
+
+@pytest.mark.parametrize("client_id, expected", [
+    ("http://127.0.0.1:8123/", True),
+    ("https://ha.example.com", True),
+    ("foo", False),
+    ("ftp://ha.example.com/", False),
+    ("http://", False),
+])
+def test_is_valid_client_id(client_id, expected):
+    assert is_valid_client_id(client_id) is expected
+
+
+def test_redirect_uri():
+    assert redirect_uri("http://127.0.0.1:8123/") == "http://127.0.0.1:8123/?auth_callback=1"

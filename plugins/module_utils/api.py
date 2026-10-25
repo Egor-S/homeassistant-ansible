@@ -13,7 +13,7 @@ import traceback
 
 from ansible.module_utils.basic import AnsibleModule, env_fallback, missing_required_lib
 from ansible.module_utils.six.moves.urllib.error import HTTPError
-from ansible.module_utils.six.moves.urllib.parse import urlencode
+from ansible.module_utils.six.moves.urllib.parse import urlencode, urlparse
 from ansible.module_utils.urls import open_url
 
 try:
@@ -107,6 +107,61 @@ def rest_request(base_url, path, method="GET", data=None, token=None, form=False
     except ValueError:
         payload = raw.decode("utf-8", "replace")
     return status, payload
+
+
+def derive_client_id(url):
+    """Default OAuth client ID: the base URL with exactly one trailing slash."""
+    return url.rstrip("/") + "/"
+
+
+def is_valid_client_id(client_id):
+    parsed = urlparse(client_id)
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+
+
+def redirect_uri(client_id):
+    return client_id.rstrip("/") + "/?auth_callback=1"
+
+
+def _error_message(payload):
+    if isinstance(payload, dict):
+        return payload.get("message") or payload.get("error_description") or payload.get("error") or payload
+    return payload
+
+
+def exchange_code(base_url, code, client_id, **kwargs):
+    """Exchange an authorization code; return the ``/auth/token`` payload (access and refresh token)."""
+    status, payload = rest_request(base_url, "/auth/token", method="POST", form=True, data=dict(
+        grant_type="authorization_code", code=code, client_id=client_id), **kwargs)
+    if status != 200 or not isinstance(payload, dict) or "access_token" not in payload:
+        raise HomeAssistantError("Token exchange failed with HTTP %s: %s" % (status, _error_message(payload)))
+    return payload
+
+
+def login_flow(base_url, username, password, client_id, **kwargs):
+    """Log in with the ``homeassistant`` auth provider; return an authorization code."""
+    status, payload = rest_request(base_url, "/auth/login_flow", method="POST", data=dict(
+        client_id=client_id, handler=["homeassistant", None], redirect_uri=redirect_uri(client_id)), **kwargs)
+    if status != 200 or not isinstance(payload, dict) or "flow_id" not in payload:
+        raise HomeAssistantError("Starting the login flow failed with HTTP %s: %s" % (status, _error_message(payload)))
+    status, payload = rest_request(base_url, "/auth/login_flow/%s" % payload["flow_id"], method="POST", data=dict(
+        client_id=client_id, username=username, password=password), **kwargs)
+    if status != 200 or not isinstance(payload, dict):
+        raise HomeAssistantError("Login failed with HTTP %s: %s" % (status, _error_message(payload)))
+    if payload.get("type") == "create_entry":
+        return payload["result"]
+    if payload.get("step_id") == "mfa":
+        raise HomeAssistantError("Login as %s needs multi-factor authentication, which is not supported; "
+                                 "use a long-lived access token instead." % username)
+    raise HomeAssistantError("Login as %s failed: %s" % (username, payload.get("errors") or payload))
+
+
+def revoke_token(base_url, refresh_token, **kwargs):
+    """Revoke a refresh token (and its access tokens). HA answers 200 even for unknown tokens."""
+    status, payload = rest_request(base_url, "/auth/revoke", method="POST", form=True,
+                                   data=dict(token=refresh_token), **kwargs)
+    if status != 200:
+        raise HomeAssistantError("Revoking the session failed with HTTP %s: %s" % (status, _error_message(payload)))
 
 
 def websocket_url(base_url):

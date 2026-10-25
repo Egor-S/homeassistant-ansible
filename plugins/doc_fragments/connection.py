@@ -19,7 +19,9 @@ options:
     required: true
   token:
     description:
-      - Long-lived access token used to authenticate.
+      - Access token used to authenticate, usually the RV(egors.homeassistant.login#module:token) returned by
+        M(egors.homeassistant.login), or a long-lived access token created in the Home Assistant user profile
+        and kept in Ansible Vault.
       - If not set, the value of the E(HASS_TOKEN) environment variable is used.
     type: str
     required: true

@@ -24,16 +24,39 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 
 | Module | Purpose |
 |---|---|
-| `egors.homeassistant.onboarding` | Complete first-run onboarding and create a long-lived token (persisted with `token_path`) |
+| `egors.homeassistant.onboarding` | Complete first-run onboarding (creates the owner user) |
+| `egors.homeassistant.login` | Log in with username and password; returns a token valid for 1 day |
 | `egors.homeassistant.core_config` | Core configuration: name, location, units, time zone, URLs, ... (partial state) |
 | `egors.homeassistant.area` | Manage a single area (match by `area_id` or case-insensitive `name`) |
 | `egors.homeassistant.area_info` | List areas |
 | `egors.homeassistant.floor` | Manage a single floor (`level` may be 0 or negative) |
 | `egors.homeassistant.floor_info` | List floors |
 
-All modules except `onboarding` belong to the action group `egors.homeassistant.all`,
-so the connection is configured once with `module_defaults`. `onboarding` takes no
-token and is therefore not in the group.
+All modules except `onboarding` and `login` belong to the action group
+`egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
+`onboarding` and `login` take no token and are therefore not in the group.
+
+## Authentication
+
+No token is ever written to disk. Keep secrets in [Ansible Vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html)
+and pick one of:
+
+- **Username and password** (recommended): `login` creates a fresh token on every run
+  and returns it in memory. It is named `Ansible login <time> <random>` in the user
+  profile, expires after `token_lifespan` days (default 1) and is deleted by a later
+  run once expired. The login session itself is revoked right away. `login` never
+  reports a change.
+- **Long-lived access token**: create one in the Home Assistant user profile, put it
+  in Vault and pass it as `token` (or the `HASS_TOKEN` environment variable):
+
+  ```yaml
+  module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ hass_url }}"
+      token: "{{ vault_hass_token }}"
+  ```
+
+Multi-factor authentication is not supported by `login`; use a long-lived token instead.
 
 ## Example
 
@@ -41,21 +64,26 @@ See [examples/site.yml](examples/site.yml) for a playbook that goes from a fresh
 container to a configured instance:
 
 ```yaml
-- name: Onboard (or read back the token of an onboarded instance)
+- name: Onboard
   egors.homeassistant.onboarding:
     url: "{{ hass_url }}"
     name: Admin
     username: admin
-    password: "{{ hass_password }}"
-    token_path: "{{ playbook_dir }}/.hass.token"
-  register: hass_onboarding
+    password: "{{ vault_hass_password }}"
+
+- name: Log in
+  egors.homeassistant.login:
+    url: "{{ hass_url }}"
+    username: admin
+    password: "{{ vault_hass_password }}"
+  register: hass_login
   no_log: true  # the result contains the token
 
 - name: Configure
   module_defaults:
     group/egors.homeassistant.all:
       url: "{{ hass_url }}"
-      token: "{{ hass_onboarding.token }}"
+      token: "{{ hass_login.token }}"
   block:
     - egors.homeassistant.core_config:
         location_name: Cottage
@@ -65,13 +93,9 @@ container to a configured instance:
         aliases: [Study]
 ```
 
-Notes:
-
-- The long-lived token can only be read when it is created. Keep `token_path`
-  (or store the returned `token` yourself); otherwise a re-run of an onboarded
-  instance has no token to return.
-- `--check` against a never-onboarded instance stops after `onboarding`, since no
-  token exists yet to query the rest.
+Note: `--check` against a never-onboarded instance stops at `login`, since the
+owner user does not exist yet. On an onboarded instance `login` logs in during
+`--check` too, so the other modules can report their planned changes.
 
 ## Development
 

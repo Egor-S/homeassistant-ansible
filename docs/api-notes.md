@@ -89,9 +89,8 @@ Bearer required. Body REQUIRED: `client_id` and `redirect_uri`.
 Steps can be done in any order after `user`; I ran core_config, analytics, integration.
 
 Idempotency: every repeat is `403 "<X> step already done"`; so check `GET /api/onboarding`
-first and only run missing steps. Once the `user` step is done there is no way to get a
-token without credentials (needs `/auth/login_flow`, not explored), so `token_path`
-file persistence matters as designed.
+first and only run missing steps. Once the `user` step is done a token needs the
+owner's credentials (`/auth/login_flow`, see below).
 
 ## WebSocket `ws://127.0.0.1:8123/api/websocket`
 
@@ -106,12 +105,36 @@ Commands: `{"id":N,"type":"...", ...}` (ids increasing); replies
 `{"id":4,"type":"auth/long_lived_access_token","client_name":"ansible","lifespan":3650}`
 -> `result` is the token string (JWT, ~exp +10y). `lifespan` (days) is required, else
 `invalid_format "required key not provided at 'lifespan'. Got None"`. Works for
-`GET /api/` (`200 {"message":"API running."}`) and WS auth/commands. Duplicate
-`client_name`s are allowed (a new token each call), so for idempotency list with
-`{"type":"auth/refresh_tokens"}` (entries: `id`, `client_name`, `type:"long_lived_access_token"`,
-`expire_at`, `is_current`, ...) - but the token value cannot be read back, hence `token_path`.
-Delete: `auth/delete_refresh_token` (not tested).
+`GET /api/` (`200 {"message":"API running."}`) and WS auth/commands.
+- **One LLAT per `client_name`** per user: a second create with the same name fails with
+  `unknown_error "Unknown error"` (HA log: `ValueError: <name> already exists`).
+- List: `{"type":"auth/refresh_tokens"}` -> entries `id`, `client_name`, `client_id`,
+  `type` (`normal` / `long_lived_access_token`), `created_at` (ISO string), `expire_at`,
+  `last_used_at`, `is_current`, ... (`created_at` e.g. `2026-10-25T15:14:05.279676+00:00`). The token value and the LLAT lifespan cannot be read back.
+- Delete: `{"type":"auth/delete_refresh_token","refresh_token_id":"..."}` -> `result: {}`
+  (verified). Unknown id -> `invalid_token_id` (from source). Deleting the refresh token of the open
+  connection makes HA drop the connection (verified), so revoke the own session over REST instead.
 Bad token on REST: `401`.
+
+### Expiry (from `homeassistant/auth/const.py`)
+| Token | Lifetime |
+|---|---|
+| Access token | 30 min |
+| Normal refresh token (login session) | 90 days, sliding: renewed on every use |
+| Long-lived token | its `lifespan`; `expire_at` is `null`, so the 90-day cleanup never removes it |
+
+### Login flow (owner credentials)
+1. `POST /auth/login_flow` `{"client_id","handler":["homeassistant",null],"redirect_uri"}` -> `flow_id`
+2. `POST /auth/login_flow/<flow_id>` `{"client_id","username","password"}` ->
+   `type: create_entry` with `result` = auth code; wrong password -> `type: form`,
+   `errors: {"base":"invalid_auth"}` (verified); MFA enabled -> `type: form`, `step_id: mfa`
+   (from source, not tested).
+3. Exchange the code at `/auth/token` as above.
+
+### POST /auth/revoke (form, no auth)
+`token=<refresh_token>` -> `200`, removes the session and its access tokens (verified:
+after `onboarding` and `login` the owner has no `normal` tokens left). Unknown tokens also
+give `200`. `/auth/token` with `action=revoke` is deprecated.
 
 ### Errors
 ```json
@@ -223,7 +246,5 @@ Same shape of commands as areas: `list`, `create` (`name` required; optional `al
   for user not available`); use the short-lived access token from the `/auth/token`
   code exchange for the remaining steps.
 - If a run is interrupted after the `user` step, the remaining steps are completed by
-  logging in as the owner via `/auth/login_flow` (username/password), so `token_path`
-  is not required for recovery.
-- A token read back from `token_path` is validated with `GET /api/config` (also yields
-  the HA version).
+  logging in as the owner via `/auth/login_flow` (username/password).
+- `GET /api/config` with the session's access token yields the HA version.

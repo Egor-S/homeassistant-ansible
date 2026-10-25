@@ -28,8 +28,11 @@ time. Support for older versions may be added later.
 - **Common connection options** via a doc fragment: `url`, `token`,
   `validate_certs`, `timeout`, with `HASS_URL` / `HASS_TOKEN` env fallbacks.
   Action group `egors.homeassistant.all` so `module_defaults` can set them once.
-  `onboarding` is **not** in the group: it takes no `token`, and `module_defaults`
-  for a group fails modules that do not accept every default.
+  `onboarding` and `login` are **not** in the group: they take no `token`, and
+  `module_defaults` for a group fails modules that do not accept every default.
+- **No secrets on disk**: the collection never writes a token anywhere. Credentials
+  live in Ansible Vault; `login` turns them into a token held in memory for one run.
+  Users who prefer it pass their own long-lived token (from Vault) as `token`.
 - **Version check**: modules read the HA version (WS auth response) and
   **warn** — never fail — when it is older than the `MIN_HA_VERSION` constant.
 
@@ -37,7 +40,8 @@ time. Support for older versions may be added later.
 
 | Module | Kind | Notes |
 |---|---|---|
-| `onboarding` | bootstrap | Completes all onboarding steps (`user`, `core_config`, `analytics`, `integration`) with minimal defaults (analytics off). No core-config inputs — `core_config` owns those. Polls until HA is up (`timeout`, default ~300s). Creates a long-lived access token; optional `token_path` writes it to the controller (0600) on creation and reads it back on later runs, so playbooks are idempotent. |
+| `onboarding` | bootstrap | Completes all onboarding steps (`user`, `core_config`, `analytics`, `integration`) with minimal defaults (analytics off). No core-config inputs — `core_config` owns those. Polls until HA is up (`wait_timeout`, default 300s). Creates no token; its login session is revoked at the end. |
+| `login` | auth | Username/password → long-lived token with a short lifespan (default 1 day), named `<token_client_name> <UTC time> <random hex>` (HA allows one LLAT per name). Deletes tokens matching that pattern older than the lifespan, keeps younger ones (parallel runs). Revokes its login session. Always `changed: false`; runs in check mode. |
 | `core_config` | singleton | **Partial** state: only keys provided are compared/updated (`config/core/update`). |
 | `area` | collection item | `state: present/absent`. Match by `area_id` if given, else case-insensitive `name`; rename = `area_id` + new `name`. Fields: `name`, `aliases` (set semantics), `icon`, `picture`; `floor_id`, `labels`, `temperature_entity_id`, `humidity_entity_id` passed through as raw IDs. |
 | `area_info` | info | Lists areas. |
@@ -85,9 +89,11 @@ assignments), hence opt-in.
 - Onboarding steps after `user` use the short-lived access token (the
   `integration` step rejects long-lived tokens).
 - A run interrupted after the `user` step recovers by logging in as the owner via
-  `/auth/login_flow`, so `token_path` is not needed for recovery.
-- `--check` on a never-onboarded instance cannot get past `onboarding` (no token
-  yet to query anything else).
+  `/auth/login_flow`.
+- Persisting the token (`token_path`) was dropped before the first release: a 10-year
+  admin token in plaintext next to the playbook, outside Vault, saved nothing over a
+  login with the password the playbook already has.
+- `--check` on a never-onboarded instance cannot get past `login` (no owner yet).
 - Generic registry logic (find/diff/create/update/delete, check mode, diff) lives
   in `module_utils/registry.py`; `area.py`/`floor.py` are ~20 lines of code plus docs.
   Field kinds: `strings` and `ints` (`""` clears) and `lists` (set semantics).

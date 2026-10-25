@@ -5,5 +5,3 @@ __pycache__/
 *.pyc
 tests/integration/integration_config.yml
 *.token
-.token
-.hass.token

@@ -15,10 +15,13 @@
 - name: Fresh Home Assistant
   when: ha_fresh | bool
   block:
-    - name: Remove stale token file
-      ansible.builtin.file:
-        path: "{{ ha_token_path }}"
-        state: absent
+    - name: Log in before onboarding
+      egors.homeassistant.login:
+        url: "{{ ha_url }}"
+        username: "{{ ha_owner_username }}"
+        password: "{{ ha_owner_password }}"
+      register: login_too_early
+      ignore_errors: true
 
     - name: Onboard (check mode)
       egors.homeassistant.onboarding: &onboard_args
@@ -26,7 +29,6 @@
         name: "{{ ha_owner_name }}"
         username: "{{ ha_owner_username }}"
         password: "{{ ha_owner_password }}"
-        token_path: "{{ ha_token_path }}"
       check_mode: true
       diff: true
       register: onboard_check
@@ -36,21 +38,16 @@
         url: "{{ ha_url }}/api/onboarding"
       register: status_after_check
 
-    - name: Stat token file after check mode
-      ansible.builtin.stat:
-        path: "{{ ha_token_path }}"
-      register: token_file_after_check
-
-    - name: Check mode reported changes without applying them
+    - name: Login fails before onboarding, check mode reports changes without applying them
       ansible.builtin.assert:
         that:
+          - login_too_early is failed
+          - "'not onboarded' in login_too_early.msg"
           - onboard_check is changed
-          - onboard_check.token is not defined
           - onboard_check.diff.before.steps.user == false
           - onboard_check.diff.after.steps.user == true
           - onboard_check.steps | dict2items | map(attribute='value') is all
           - status_after_check.json | selectattr('done') | list | length == 0
-          - not token_file_after_check.stat.exists
 
     - name: Onboard
       egors.homeassistant.onboarding: *onboard_args
@@ -61,105 +58,28 @@
         url: "{{ ha_url }}/api/onboarding"
       register: status_after
 
-    - name: Stat token file
-      ansible.builtin.stat:
-        path: "{{ ha_token_path }}"
-      register: token_file
-
-    - name: Use the token
-      ansible.builtin.uri:
-        url: "{{ ha_url }}/api/"
-        headers:
-          Authorization: "Bearer {{ onboard.token }}"
-
-    - name: Onboarding happened and the token was stored
+    - name: Onboarding happened and returned no token
       ansible.builtin.assert:
         that:
           - onboard is changed
-          - onboard.token | length > 0
+          - onboard.token is not defined
           - onboard.ha_version is defined
           - "onboard.steps == {'user': true, 'core_config': true, 'analytics': true, 'integration': true}"
           - status_after.json | rejectattr('done') | list | length == 0
-          - token_file.stat.exists
-          - token_file.stat.mode == '0600'
-          - lookup('ansible.builtin.file', ha_token_path) == onboard.token
 
-    - name: Onboard again
-      egors.homeassistant.onboarding: *onboard_args
-      register: onboard_again
-
-    - name: Second run is idempotent and returns the same token
-      ansible.builtin.assert:
-        that:
-          - onboard_again is not changed
-          - onboard_again.token == onboard.token
-
-- name: Onboarded Home Assistant
-  when: not (ha_fresh | bool)
-  block:
-    - name: Onboard an already onboarded HA
-      egors.homeassistant.onboarding:
-        url: "{{ ha_url }}"
-        name: "{{ ha_owner_name }}"
-        username: "{{ ha_owner_username }}"
-        password: "{{ ha_owner_password }}"
-        token_path: "{{ ha_token_path }}"
-      register: onboard_again
-
-    - name: Nothing changed and the stored token is returned
-      ansible.builtin.assert:
-        that:
-          - onboard_again is not changed
-          - onboard_again.token == lookup('ansible.builtin.file', ha_token_path)
-
-- name: Onboarded HA without token_path returns no token
+- name: Onboard again
   egors.homeassistant.onboarding:
     url: "{{ ha_url }}"
     name: "{{ ha_owner_name }}"
     username: "{{ ha_owner_username }}"
     password: "{{ ha_owner_password }}"
-  register: onboard_no_path
+  register: onboard_again
 
-- name: No change and no token without token_path
+- name: Second run is idempotent
   ansible.builtin.assert:
     that:
-      - onboard_no_path is not changed
-      - onboard_no_path.token is not defined
-
-- name: Stale token file
-  block:
-    - name: Create a temporary token file
-      ansible.builtin.tempfile:
-        suffix: .token
-      register: stale_token_file
-
-    - name: Write an invalid token
-      ansible.builtin.copy:
-        dest: "{{ stale_token_file.path }}"
-        content: "not-a-valid-token\n"
-        mode: "0600"
-
-    - name: Onboard with an invalid token in token_path
-      egors.homeassistant.onboarding:
-        url: "{{ ha_url }}"
-        name: "{{ ha_owner_name }}"
-        username: "{{ ha_owner_username }}"
-        password: "{{ ha_owner_password }}"
-        token_path: "{{ stale_token_file.path }}"
-      register: onboard_stale
-      ignore_errors: true
-
-    - name: An invalid stored token fails clearly
-      ansible.builtin.assert:
-        that:
-          - onboard_stale is failed
-          - "'not accepted' in onboard_stale.msg"
-  always:
-    - name: Remove the temporary token file
-      ansible.builtin.file:
-        path: "{{ stale_token_file.path }}"
-        state: absent
-      when: stale_token_file.path is defined
+      - onboard_again is not changed
+      - onboard_again.token is not defined
 
 - name: Invalid client_id is rejected
   egors.homeassistant.onboarding:

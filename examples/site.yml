@@ -1,28 +1,33 @@
 ---
 # From a fresh Home Assistant to a configured one, in one playbook.
-#   ansible-playbook examples/site.yml -e hass_url=http://127.0.0.1:8123 -e hass_password=...
+#   ansible-playbook examples/site.yml -e hass_url=http://127.0.0.1:8123 -e vault_hass_password=...
+# In real use, keep vault_hass_password in an Ansible Vault file instead of passing it with -e.
 - name: Provision Home Assistant
   hosts: localhost
   gather_facts: false
   vars:
     hass_url: http://127.0.0.1:8123
-    hass_token_path: "{{ playbook_dir }}/.hass.token"
   tasks:
-    - name: Onboard (or read back the token of an onboarded instance)
+    - name: Onboard
       egors.homeassistant.onboarding:
         url: "{{ hass_url }}"
         name: Admin
         username: admin
-        password: "{{ hass_password }}"
-        token_path: "{{ hass_token_path }}"
-      register: hass_onboarding
+        password: "{{ vault_hass_password }}"
+
+    - name: Log in
+      egors.homeassistant.login:
+        url: "{{ hass_url }}"
+        username: admin
+        password: "{{ vault_hass_password }}"
+      register: hass_login
       no_log: true  # the result contains the token
 
     - name: Configure
       module_defaults:
         group/egors.homeassistant.all:
           url: "{{ hass_url }}"
-          token: "{{ hass_onboarding.token }}"
+          token: "{{ hass_login.token }}"
       block:
         - name: Core configuration
           egors.homeassistant.core_config:

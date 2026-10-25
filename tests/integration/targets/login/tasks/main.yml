@@ -1,0 +1,73 @@
+---
+- name: Log in in check mode
+  egors.homeassistant.login: &login_args
+    url: "{{ ha_url }}"
+    username: "{{ ha_owner_username }}"
+    password: "{{ ha_owner_password }}"
+  check_mode: true
+  register: login_check
+
+- name: Log in
+  egors.homeassistant.login: *login_args
+  register: login_first
+
+- name: Log in again
+  egors.homeassistant.login: *login_args
+  register: login_second
+
+- name: Use both tokens
+  ansible.builtin.uri:
+    url: "{{ ha_url }}/api/config"
+    headers:
+      Authorization: "Bearer {{ item }}"
+  loop:
+    - "{{ login_check.token }}"
+    - "{{ login_first.token }}"
+    - "{{ login_second.token }}"
+  no_log: true
+
+- name: List the tokens of the owner
+  ansible.builtin.command:
+    argv: ["{{ ansible_playbook_python }}", "{{ role_path }}/files/list_tokens.py", "{{ ha_url }}"]
+    stdin: "{{ login_second.token }}"
+  register: tokens_raw
+  changed_when: false
+
+- name: Login never reports a change, keeps young tokens and leaves no session behind
+  vars:
+    tokens: "{{ tokens_raw.stdout | from_json }}"
+  ansible.builtin.assert:
+    that:
+      - login_check is not changed
+      - login_first is not changed
+      - login_second is not changed
+      - login_second.deleted_tokens == 0
+      - login_first.token != login_second.token
+      - login_second.ha_version is defined
+      - tokens | selectattr('type', 'equalto', 'normal') | list | length == 0
+      - login_first.token_name != login_second.token_name
+      - login_second.token_name is match('Ansible login \\d{4}-')
+      - tokens | selectattr('client_name', 'in', [login_check.token_name, login_first.token_name, login_second.token_name]) | list | length == 3
+
+- name: Wrong password
+  egors.homeassistant.login:
+    url: "{{ ha_url }}"
+    username: "{{ ha_owner_username }}"
+    password: not-the-password
+  register: login_bad_password
+  ignore_errors: true
+
+- name: Invalid lifespan
+  egors.homeassistant.login:
+    <<: *login_args
+    token_lifespan: 0
+  register: login_bad_lifespan
+  ignore_errors: true
+
+- name: Bad input fails clearly
+  ansible.builtin.assert:
+    that:
+      - login_bad_password is failed
+      - "'invalid_auth' in login_bad_password.msg"
+      - login_bad_lifespan is failed
+      - "'token_lifespan' in login_bad_lifespan.msg"
