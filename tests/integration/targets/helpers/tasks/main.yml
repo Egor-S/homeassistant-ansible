@@ -1,0 +1,285 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Remove leftovers of earlier runs
+      ansible.builtin.include_tasks: cleanup.yml
+
+    # input_boolean: the basic flow, and that an update keeps fields it does not mention.
+    - name: Create a toggle in check mode
+      egors.homeassistant.input_boolean: &bool
+        name: ansible_test_bool
+        icon: mdi:flask
+        initial: true
+      check_mode: true
+      register: bool_check
+
+    - name: Create a toggle
+      egors.homeassistant.input_boolean: *bool
+      register: bool_created
+
+    - name: Create it again
+      egors.homeassistant.input_boolean: *bool
+      register: bool_again
+
+    - name: Change only the icon
+      egors.homeassistant.input_boolean:
+        name: ansible_test_bool
+        icon: mdi:flask-outline
+      diff: true
+      register: bool_icon
+
+    - name: Remove the icon
+      egors.homeassistant.input_boolean: &bool_noicon
+        input_boolean_id: ansible_test_bool
+        icon: ""
+      register: bool_noicon
+
+    - name: Remove it again
+      egors.homeassistant.input_boolean: *bool_noicon
+      register: bool_noicon_again
+
+    - name: Read toggles
+      egors.homeassistant.helper_info:
+        type: input_boolean
+        helper_id: ansible_test_bool
+      register: bool_info
+
+    - name: Toggle behaved
+      ansible.builtin.assert:
+        that:
+          - bool_check is changed
+          - bool_check.input_boolean.input_boolean_id is none
+          - bool_created is changed
+          - bool_created.input_boolean.input_boolean_id == 'ansible_test_bool'
+          - bool_created.input_boolean.initial == true
+          - bool_again is not changed
+          - bool_icon is changed
+          - bool_icon.diff.before.icon == 'mdi:flask'
+          - bool_icon.input_boolean.initial == true
+          - bool_noicon is changed
+          - bool_noicon.input_boolean.icon is none
+          - bool_noicon.input_boolean.initial == true
+          - bool_noicon_again is not changed
+          - bool_info.helpers | length == 1
+          - bool_info.helpers[0].input_boolean_id == 'ansible_test_bool'
+          - bool_info.helpers[0].initial == true
+
+    # input_number: required fields, HA defaults, floats.
+    - name: Create a number without min and max
+      egors.homeassistant.input_number:
+        name: ansible_test_number
+      register: number_missing
+      ignore_errors: true
+
+    - name: Create a number
+      egors.homeassistant.input_number:
+        name: ansible_test_number
+        min: 15
+        max: 25
+        unit_of_measurement: °C
+      register: number_created
+
+    - name: Idempotent with HA defaults spelled out
+      egors.homeassistant.input_number:
+        name: ansible_test_number
+        min: 15.0
+        max: 25
+        step: 1
+        mode: slider
+      register: number_again
+
+    - name: Change step and mode only
+      egors.homeassistant.input_number:
+        name: ansible_test_number
+        step: 0.5
+        mode: box
+      register: number_step
+
+    - name: Remove the unit
+      egors.homeassistant.input_number:
+        name: ansible_test_number
+        unit_of_measurement: ""
+      register: number_nounit
+
+    - name: Number behaved
+      ansible.builtin.assert:
+        that:
+          - number_missing is failed
+          - "'min and max are required' in number_missing.msg"
+          - number_created is changed
+          - number_created.input_number.step == 1.0
+          - number_created.input_number.mode == 'slider'
+          - number_again is not changed
+          - number_step is changed
+          - number_step.input_number.min == 15.0
+          - number_step.input_number.max == 25.0
+          - number_step.input_number.step == 0.5
+          - number_step.input_number.mode == 'box'
+          - number_step.input_number.unit_of_measurement == '°C'
+          - number_nounit is changed
+          - number_nounit.input_number.unit_of_measurement is none
+          - number_nounit.input_number.step == 0.5
+
+    # input_text
+    - name: Create a text
+      egors.homeassistant.input_text: &text
+        name: ansible_test_text
+        max: 50
+        pattern: "[a-z]*"
+        initial: hello
+      register: text_created
+
+    - name: Create it again
+      egors.homeassistant.input_text: *text
+      register: text_again
+
+    - name: Remove pattern and initial
+      egors.homeassistant.input_text:
+        name: ansible_test_text
+        pattern: ""
+        initial: ""
+        mode: password
+      register: text_cleared
+
+    - name: Text behaved
+      ansible.builtin.assert:
+        that:
+          - text_created is changed
+          - text_created.input_text.min == 0
+          - text_created.input_text.max == 50
+          - text_created.input_text.mode == 'text'
+          - text_again is not changed
+          - text_cleared is changed
+          - text_cleared.input_text.pattern is none
+          - text_cleared.input_text.initial is none
+          - text_cleared.input_text.mode == 'password'
+          - text_cleared.input_text.max == 50
+
+    # input_select: ordered options, duplicates rejected by HA.
+    - name: Create a dropdown
+      egors.homeassistant.input_select: &select
+        name: ansible_test_select
+        options: [Home, Away, Night]
+        initial: Home
+      register: select_created
+
+    - name: Create it again
+      egors.homeassistant.input_select: *select
+      register: select_again
+
+    - name: Reorder the options
+      egors.homeassistant.input_select:
+        name: ansible_test_select
+        options: [Night, Home, Away]
+      register: select_reordered
+
+    - name: Duplicate options
+      egors.homeassistant.input_select:
+        name: ansible_test_select
+        options: [Home, Home]
+      register: select_duplicate
+      ignore_errors: true
+
+    - name: Dropdown behaved
+      ansible.builtin.assert:
+        that:
+          - select_created is changed
+          - select_created.input_select.options == ['Home', 'Away', 'Night']
+          - select_again is not changed
+          - select_reordered is changed
+          - select_reordered.input_select.options == ['Night', 'Home', 'Away']
+          - select_reordered.input_select.initial == 'Home'
+          - select_duplicate is failed
+          - "'Duplicate options' in select_duplicate.msg"
+
+    # input_button
+    - name: Create a button
+      egors.homeassistant.input_button: &button
+        name: ansible_test_button
+      register: button_created
+
+    - name: Create it again
+      egors.homeassistant.input_button: *button
+      register: button_again
+
+    # counter: integer limits that an empty string clears.
+    - name: Create a counter
+      egors.homeassistant.counter: &counter
+        name: ansible_test_counter
+        minimum: 0
+        maximum: 10
+        step: 2
+      register: counter_created
+
+    - name: Create it again with the limits as strings
+      egors.homeassistant.counter:
+        name: ansible_test_counter
+        minimum: "0"
+        maximum: "10"
+        step: 2
+      register: counter_again
+
+    - name: Remove the maximum
+      egors.homeassistant.counter: &counter_nomax
+        name: ansible_test_counter
+        maximum: ""
+      register: counter_nomax
+
+    - name: Remove it again
+      egors.homeassistant.counter: *counter_nomax
+      register: counter_nomax_again
+
+    - name: Button and counter behaved
+      ansible.builtin.assert:
+        that:
+          - button_created is changed
+          - button_created.input_button.input_button_id == 'ansible_test_button'
+          - button_again is not changed
+          - counter_created is changed
+          - counter_created.counter.initial == 0
+          - counter_created.counter.restore == true
+          - counter_created.counter.maximum == 10
+          - counter_again is not changed
+          - counter_nomax is changed
+          - counter_nomax.counter.maximum is none
+          - counter_nomax.counter.minimum == 0
+          - counter_nomax.counter.step == 2
+          - counter_nomax_again is not changed
+
+    # Deleting, for one type (the code path is shared).
+    - name: Delete the counter in check mode
+      egors.homeassistant.counter: &counter_delete
+        name: ansible_test_counter
+        state: absent
+      check_mode: true
+      register: counter_delete_check
+
+    - name: Delete the counter
+      egors.homeassistant.counter: *counter_delete
+      register: counter_deleted
+
+    - name: Delete it again
+      egors.homeassistant.counter: *counter_delete
+      register: counter_deleted_again
+
+    - name: Read counters
+      egors.homeassistant.helper_info:
+        type: counter
+        name: ansible_test_counter
+      register: counter_info
+
+    - name: Delete behaved
+      ansible.builtin.assert:
+        that:
+          - counter_delete_check is changed
+          - counter_deleted is changed
+          - counter_deleted.counter == {}
+          - counter_deleted_again is not changed
+          - counter_info.helpers == []
+
+  always:
+    - name: Clean up
+      ansible.builtin.include_tasks: cleanup.yml

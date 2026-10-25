@@ -50,6 +50,8 @@ time. Support for older versions may be added later.
 | `floor_info` | info | Lists floors. |
 | `label` / `label_info` | collection item / info | Same shape as `floor` (match by `label_id`, else name). Fields: `name`, `icon`, `color` (hex or theme color), `description`. |
 | `zone` / `zone_info` | collection item / info | Storage collection on the same `registry.py` (`entry_key="id"`; commands take `zone_id`). Names may repeat, so a name matching several zones fails. `latitude`/`longitude` required to create; `icon` can't be removed. |
+| `input_boolean`, `input_button`, `input_number`, `input_select`, `input_text`, `counter` | collection item | One typed module per helper type (argspec validation and docs per type), field specs shared in `module_utils/helpers.py`. HA **replaces the whole item** on update, so `registry.py` sends the current entry with the changes applied (`replace=True`); a cleared field is left out and falls back to HA's default. `input_select.options` is ordered. |
+| `helper_info` | info | One info module for all helper types (`type` option, `helper_id` filter) instead of one per type. |
 | `http_config` | singleton | **Partial** state like `core_config`, but `http/config/configure` replaces the whole config, so stable plus changes is sent. A change restarts HA into a 5-minute trial; the module waits for the WS connection to drop, reconnects (`reconnect_url`, for port/TLS changes) until `RUNNING`, checks HA runs on the new config, then promotes it. An unreachable result reverts itself. |
 
 Deferred: a set-level module (`areas` with `purge`, default `false`) once the

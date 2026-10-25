@@ -11,7 +11,9 @@ its id field (``area_id``) and its managed fields: ``strings`` (clearable, ``""`
 given, typed by the argument spec). ``name`` is always managed and required for creation.
 
 Storage collections differ from registries: their entries carry the id as ``id`` (``entry_key``) while
-commands take ``<domain>_id``, and names need not be unique.
+commands take ``<domain>_id``, and names need not be unique. Some (the helpers) replace the whole item
+on update (``replace``): the payload is then the current entry with the changes applied, and a cleared
+field is left out so that Home Assistant falls back to its default.
 """
 
 from __future__ import annotations
@@ -88,7 +90,7 @@ class Registry:
     """``unclearable`` fields can't be removed once set; ``required`` fields are needed besides ``name`` to create."""
 
     def __init__(self, module, prefix, id_field, strings=(), lists=(), ints=(), values=(), entry_key=None,
-                 unclearable=(), required=()):
+                 unclearable=(), required=(), replace=False):
         self.module = module
         self.prefix = prefix
         self.id_field = id_field
@@ -99,6 +101,7 @@ class Registry:
         self.entry_key = entry_key or id_field
         self.unclearable = tuple(unclearable)
         self.required = tuple(required)
+        self.replace = replace
 
     def normalize(self, entry):
         return normalize_entry(entry, self.id_field, self.strings, self.lists, self.ints, self.values, self.entry_key)
@@ -106,12 +109,13 @@ class Registry:
     def list_entries(self):
         return self.module.call(self.prefix + "/list")
 
-    def info(self, result_key):
+    def info(self, result_key, id_param=None):
         """Implementation of the ``*_info`` modules: list, filter by id/name, exit."""
         params = self.module.params
+        id_param = id_param or self.id_field
         entries = self.list_entries()
-        if params.get(self.id_field) is not None:
-            entries = [e for e in entries if e.get(self.entry_key) == params[self.id_field]]
+        if params.get(id_param) is not None:
+            entries = [e for e in entries if e.get(self.entry_key) == params[id_param]]
         if params.get("name") is not None:
             wanted = normalize_name(params["name"])
             entries = [e for e in entries if normalize_name(e.get("name") or "") == wanted]
@@ -164,7 +168,12 @@ class Registry:
             changed = bool(changes)
             after = self.predict(before, changes)
             if changed and not module.check_mode:
-                payload = dict(changes, **{self.id_field: before[self.id_field]})
+                payload = dict(changes)
+                if self.replace:
+                    payload = dict((k, v) for k, v in entry.items() if k != self.entry_key)
+                    payload.update(changes)
+                    payload = dict((k, v) for k, v in payload.items() if v is not None)
+                payload[self.id_field] = before[self.id_field]
                 after = self.write("/update", payload, desired)
 
         result = {"changed": changed, result_key: after}

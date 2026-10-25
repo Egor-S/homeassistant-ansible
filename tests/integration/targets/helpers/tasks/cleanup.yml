@@ -1,0 +1,30 @@
+---
+- name: Delete the test toggle
+  egors.homeassistant.input_boolean:
+    name: ansible_test_bool
+    state: absent
+
+- name: Delete the test number
+  egors.homeassistant.input_number:
+    name: ansible_test_number
+    state: absent
+
+- name: Delete the test text
+  egors.homeassistant.input_text:
+    name: ansible_test_text
+    state: absent
+
+- name: Delete the test dropdown
+  egors.homeassistant.input_select:
+    name: ansible_test_select
+    state: absent
+
+- name: Delete the test button
+  egors.homeassistant.input_button:
+    name: ansible_test_button
+    state: absent
+
+- name: Delete the test counter
+  egors.homeassistant.counter:
+    name: ansible_test_counter
+    state: absent
