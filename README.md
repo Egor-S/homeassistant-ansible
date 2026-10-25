@@ -57,6 +57,10 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.analytics` | Analytics preferences (partial state) |
 | `egors.homeassistant.logger_level` | Permanent log level of an integration |
 | `egors.homeassistant.network` | Network adapters Home Assistant uses |
+| `egors.homeassistant.exposed_entity` | Expose entities to Assist, Alexa, Google Assistant |
+| `egors.homeassistant.expose_new_entities` | Whether new entities are exposed, per assistant |
+| `egors.homeassistant.area_order`, `floor_order` | Order of areas or floors |
+| `egors.homeassistant.energy_prefs` | Energy dashboard sources and devices |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -91,12 +95,12 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 |---|---|---|
 | Areas | ✅ `area`, `area_info` | WS `config/area_registry/*` |
 | Floors | ✅ `floor`, `floor_info` | WS `config/floor_registry/*` |
-| Area / floor ordering | 🟡 | WS `config/{area,floor}_registry/reorder` |
+| Area / floor ordering | ✅ `area_order`, `floor_order` | WS `config/{area,floor}_registry/reorder` |
 | Labels | ✅ `label`, `label_info` | WS `config/label_registry/*` |
 | Categories | ✅ `category`, `category_info` | WS `config/category_registry/*`. Assigning entities to categories isn't supported yet. |
 | Devices: area, name, labels, disable | ✅ `device`, `device_info` | WS `config/device_registry/update`. Devices come from integrations, so update only. |
 | Entities: name, icon, area, aliases, labels, device class, disable/hide, entity ID | ✅ `entity`, `entity_info` | WS `config/entity_registry/get`, `update`. Created by integrations, so update only. |
-| Entities exposed to voice assistants | 🟡 | WS `homeassistant/expose_entity`, `expose_new_entities/set` |
+| Entities exposed to voice assistants | ✅ `exposed_entity`, `expose_new_entities` | WS `homeassistant/expose_entity`, `expose_new_entities/set` |
 
 ### Users and people
 
@@ -135,7 +139,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 | Dashboard resources (custom cards) | ✅ `dashboard_resource` | WS `lovelace/resources/*` (in storage mode) |
 | Voice assistant pipelines | 🟡 | WS `assist_pipeline/pipeline/*` |
 | Backup schedule and retention | ✅ `backup_config` | WS `backup/config/update` |
-| Energy dashboard | 🟡 | WS `energy/save_prefs` |
+| Energy dashboard | ✅ `energy_prefs` | WS `energy/save_prefs` |
 | Log level per integration | ✅ `logger_level` | WS `logger/integration_log_level` (`persistence: permanent`) |
 | Default log level, log filters | ❌ | `logger:` in YAML |
 | Recorder: database URL, retention, excludes | ❌ | `recorder:` in YAML. Only `recorder/info` is readable. |

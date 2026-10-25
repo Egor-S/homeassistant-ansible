@@ -386,6 +386,19 @@ unique** and not normalised (`" probe"` next to `Probe`). `icon: null` clears. U
   (`[]` = automatic). `network/configure` (`config: {"configured_adapters": [...]}`) -> the new config;
   **unknown adapter names are stored as given**.
 
+## Voice assistant exposure, ordering, energy
+
+- `homeassistant/expose_entity/list` -> `{"exposed_entities": {entity_id: {assistant: true}}}`, **only assistants an
+  entity is exposed to** (false and unset look the same). `homeassistant/expose_entity` (`assistants`,
+  `entity_ids`, `should_expose`) -> `null`, also for unknown entity IDs. Assistants: `conversation`, `cloud.alexa`,
+  `cloud.google_assistant`. `homeassistant/expose_new_entities/get|set` (`assistant`, `expose_new`); default
+  `conversation: true`.
+- `config/{area,floor}_registry/reorder` (`area_ids` / `floor_ids`) -> `null`; the list must hold every ID exactly
+  once (`invalid_format`). `list` returns the new order.
+- `energy/get_prefs` -> `not_found "No prefs"` until the first save. `energy/save_prefs` (`energy_sources`,
+  `device_consumption`, `device_consumption_water`, each optional) merges by section and returns the full prefs;
+  items are validated (e.g. grid sources need `cost_adjustment_day`) and stored as sent.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.
