@@ -353,6 +353,18 @@ unique** and not normalised (`" probe"` next to `Probe`). `icon: null` clears. U
 - Keys: automation and scene IDs are any string; script keys must be slugs (`400 "Key malformed: invalid slug ..."`).
 - `DELETE` -> `200`; missing -> `400 "Resource not found"`.
 
+## Dashboards (`lovelace/*`)
+
+- `lovelace/dashboards/list` -> `[{"id","url_path","title","icon","show_in_sidebar","require_admin","mode"}]`; a fresh
+  HA has the `map` dashboard. `create` needs `url_path` **with a hyphen** (`invalid_format "Url path needs to contain
+  a hyphen (-)"`, unless `allow_single_word`) and `title`; `id` = `url_path` with `_`. `update`/`delete` take
+  `dashboard_id`; `icon: null` clears.
+- `lovelace/config` (`url_path`, `null` for the default dashboard) -> the content, or `config_not_found` if none was
+  saved (the default dashboard is then generated). `lovelace/config/save` (`url_path`, `config`) -> `null`, stored as
+  given. `lovelace/config/delete` (`url_path: null`) resets the default dashboard.
+- `lovelace/resources/list` -> `[{"id","url","type"}]`; `create`/`update` take `url` and **`res_type`**
+  (`module`/`js`/`css`), `delete` `resource_id`. Unknown id -> `not_found`.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

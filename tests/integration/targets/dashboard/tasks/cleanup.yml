@@ -1,0 +1,15 @@
+---
+- name: Delete the test dashboard
+  egors.homeassistant.dashboard:
+    url_path: ansible-test
+    state: absent
+
+- name: Reset the default dashboard
+  egors.homeassistant.dashboard:
+    url_path: lovelace
+    state: absent
+
+- name: Remove the test resource
+  egors.homeassistant.dashboard_resource:
+    resource_url: /local/ansible-test-card.js
+    state: absent

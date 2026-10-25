@@ -1,0 +1,182 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  vars:
+    view_config:
+      views:
+        - title: Home
+          cards:
+            - type: markdown
+              content: Managed by Ansible
+  block:
+    - name: Remove leftovers of earlier runs
+      ansible.builtin.include_tasks: cleanup.yml
+
+    - name: Create without a title
+      egors.homeassistant.dashboard:
+        url_path: ansible-test
+      register: no_title
+      ignore_errors: true
+
+    - name: Create with content in check mode
+      egors.homeassistant.dashboard: &create_args
+        url_path: ansible-test
+        title: Ansible test
+        icon: mdi:flask
+        config: "{{ view_config }}"
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Create with content
+      egors.homeassistant.dashboard: *create_args
+      register: created
+
+    - name: Create again
+      egors.homeassistant.dashboard: *create_args
+      register: created_again
+
+    - name: Change settings only
+      egors.homeassistant.dashboard: &settings
+        url_path: ansible-test
+        icon: ""
+        show_in_sidebar: false
+        require_admin: true
+      register: settings
+
+    - name: Settings again
+      egors.homeassistant.dashboard: *settings
+      register: settings_again
+
+    - name: Replace the content
+      egors.homeassistant.dashboard:
+        url_path: ansible-test
+        config:
+          views: []
+      diff: true
+      register: replaced
+
+    - name: Dashboard behaved
+      ansible.builtin.assert:
+        that:
+          - no_title is failed
+          - "'title is required' in no_title.msg"
+          - create_check is changed
+          - create_check.dashboard.dashboard_id is none
+          - create_check.diff.before == {}
+          - created is changed
+          - created.dashboard.dashboard_id == 'ansible_test'
+          - created.dashboard.show_in_sidebar == true
+          - created.dashboard.require_admin == false
+          - created.config == view_config
+          - created_again is not changed
+          - settings is changed
+          - settings.dashboard.icon is none
+          - settings.dashboard.show_in_sidebar == false
+          - settings.dashboard.require_admin == true
+          - "'config' not in settings"
+          - settings_again is not changed
+          - replaced is changed
+          - replaced.diff.before.config == view_config
+          - "replaced.config == {'views': []}"
+
+    - name: Default dashboard metadata can't be set
+      egors.homeassistant.dashboard:
+        url_path: lovelace
+        title: Nope
+      register: default_title
+      ignore_errors: true
+
+    - name: Set the default dashboard content
+      egors.homeassistant.dashboard: &default
+        url_path: lovelace
+        config: "{{ view_config }}"
+      register: default_set
+
+    - name: Again
+      egors.homeassistant.dashboard: *default
+      register: default_again
+
+    - name: Reset the default dashboard
+      egors.homeassistant.dashboard: &default_reset
+        url_path: lovelace
+        state: absent
+      register: default_reset
+
+    - name: Reset again
+      egors.homeassistant.dashboard: *default_reset
+      register: default_reset_again
+
+    - name: Default dashboard behaved
+      ansible.builtin.assert:
+        that:
+          - default_title is failed
+          - default_set is changed
+          - default_again is not changed
+          - default_reset is changed
+          - default_reset_again is not changed
+
+    # dashboard_resource
+    - name: Add a resource without a type
+      egors.homeassistant.dashboard_resource:
+        resource_url: /local/ansible-test-card.js
+      register: resource_no_type
+      ignore_errors: true
+
+    - name: Add a resource
+      egors.homeassistant.dashboard_resource: &resource
+        resource_url: /local/ansible-test-card.js
+        type: module
+      register: resource
+
+    - name: Add it again
+      egors.homeassistant.dashboard_resource: *resource
+      register: resource_again
+
+    - name: Change its type
+      egors.homeassistant.dashboard_resource:
+        resource_url: /local/ansible-test-card.js
+        type: js
+      register: resource_type
+
+    - name: Remove it
+      egors.homeassistant.dashboard_resource: &resource_absent
+        resource_url: /local/ansible-test-card.js
+        state: absent
+      register: resource_removed
+
+    - name: Remove it again
+      egors.homeassistant.dashboard_resource: *resource_absent
+      register: resource_removed_again
+
+    - name: Delete the dashboard
+      egors.homeassistant.dashboard: &delete
+        url_path: ansible-test
+        state: absent
+      register: deleted
+
+    - name: Delete it again
+      egors.homeassistant.dashboard: *delete
+      register: deleted_again
+
+    - name: Resource and delete behaved
+      ansible.builtin.assert:
+        that:
+          - resource_no_type is failed
+          - resource is changed
+          - resource.resource.type == 'module'
+          - resource.resource.resource_id | length > 10
+          - resource_again is not changed
+          - resource_type is changed
+          - resource_type.resource.type == 'js'
+          - resource_removed is changed
+          - resource_removed_again is not changed
+          - deleted is changed
+          - deleted.dashboard == {}
+          - deleted_again is not changed
+
+  always:
+    - name: Clean up
+      ansible.builtin.include_tasks: cleanup.yml
