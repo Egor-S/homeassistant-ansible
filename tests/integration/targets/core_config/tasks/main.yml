@@ -1,0 +1,160 @@
+---
+- name: Core config tests
+  module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Read the original configuration
+      egors.homeassistant.core_config:
+      register: original
+
+    - name: Change several keys in check mode
+      egors.homeassistant.core_config: &new_values
+        location_name: Core Config Test
+        latitude: 52.52
+        longitude: 13.405
+        elevation: 34
+        radius: 150
+        time_zone: Europe/Berlin
+        external_url: https://example.com
+        internal_url: http://192.168.1.10:8123
+      check_mode: true
+      diff: true
+      register: check
+
+    - name: Read after check mode
+      egors.homeassistant.core_config:
+      register: after_check
+
+    - name: Check mode reports a change but applies nothing
+      ansible.builtin.assert:
+        that:
+          - check is changed
+          - check.config.location_name == 'Core Config Test'
+          - check.config.elevation == 34
+          - check.diff.before.location_name == original.config.location_name
+          - after_check is not changed
+          - after_check.config == original.config
+
+    - name: Apply
+      egors.homeassistant.core_config: *new_values
+      register: apply
+
+    - name: Apply is a change and returns the new config
+      ansible.builtin.assert:
+        that:
+          - apply is changed
+          - apply.config.location_name == 'Core Config Test'
+          - apply.config.latitude == 52.52
+          - apply.config.longitude == 13.405
+          - apply.config.elevation == 34
+          - apply.config.radius == 150
+          - apply.config.time_zone == 'Europe/Berlin'
+          - apply.config.external_url == 'https://example.com'
+          - apply.config.internal_url == 'http://192.168.1.10:8123'
+          - apply.ha_version is defined
+
+    - name: Repeat
+      egors.homeassistant.core_config: *new_values
+      register: repeat
+
+    - name: Repeat is idempotent
+      ansible.builtin.assert:
+        that:
+          - repeat is not changed
+          - repeat.config == apply.config
+
+    - name: Partial update of one key
+      egors.homeassistant.core_config:
+        location_name: Partial
+      register: partial
+
+    - name: Other keys are intact
+      ansible.builtin.assert:
+        that:
+          - partial is changed
+          - "partial.config == apply.config | combine({'location_name': 'Partial'})"
+
+    - name: Clear external_url
+      egors.homeassistant.core_config:
+        external_url: ""
+      register: clear
+
+    - name: Clear again
+      egors.homeassistant.core_config:
+        external_url: ""
+      register: clear_again
+
+    - name: external_url is cleared, internal_url is kept
+      ansible.builtin.assert:
+        that:
+          - clear is changed
+          - clear.config.external_url is none
+          - clear.config.internal_url == 'http://192.168.1.10:8123'
+          - clear_again is not changed
+
+    - name: Invalid time zone
+      egors.homeassistant.core_config:
+        time_zone: Mars/Olympus
+      register: bad_tz
+      ignore_errors: true
+
+    - name: Invalid latitude
+      egors.homeassistant.core_config:
+        latitude: 999
+      register: bad_lat
+      ignore_errors: true
+
+    - name: Failures carry a useful message and nothing was applied
+      egors.homeassistant.core_config:
+      register: after_bad
+    - ansible.builtin.assert:
+        that:
+          - bad_tz is failed
+          - "'Mars/Olympus' in bad_tz.msg"
+          - bad_lat is failed
+          - "'latitude' in bad_lat.msg"
+          - after_bad.config.time_zone == 'Europe/Berlin'
+          - after_bad.config.latitude == 52.52
+
+    - name: Unit system to us_customary
+      egors.homeassistant.core_config:
+        unit_system: us_customary
+      register: us
+
+    - name: Unit system us_customary again
+      egors.homeassistant.core_config:
+        unit_system: us_customary
+      register: us_again
+
+    - name: Unit system back to metric
+      egors.homeassistant.core_config:
+        unit_system: metric
+      register: metric
+
+    - name: Unit system round trip
+      ansible.builtin.assert:
+        that:
+          - us is changed
+          - us.config.unit_system == 'us_customary'
+          - us_again is not changed
+          - metric is changed
+          - metric.config.unit_system == 'metric'
+
+  always:
+    - name: Restore the original configuration
+      egors.homeassistant.core_config:
+        location_name: "{{ original.config.location_name }}"
+        latitude: "{{ original.config.latitude }}"
+        longitude: "{{ original.config.longitude }}"
+        elevation: "{{ original.config.elevation }}"
+        radius: "{{ original.config.radius }}"
+        unit_system: "{{ original.config.unit_system }}"
+        time_zone: "{{ original.config.time_zone }}"
+        currency: "{{ original.config.currency }}"
+        country: "{{ original.config.country | default(omit, true) }}"
+        language: "{{ original.config.language }}"
+        external_url: "{{ original.config.external_url | default('', true) }}"
+        internal_url: "{{ original.config.internal_url | default('', true) }}"
+      when: original is defined and original.config is defined
