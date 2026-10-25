@@ -61,6 +61,8 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.expose_new_entities` | Whether new entities are exposed, per assistant |
 | `egors.homeassistant.area_order`, `floor_order` | Order of areas or floors |
 | `egors.homeassistant.energy_prefs` | Energy dashboard sources and devices |
+| `egors.homeassistant.config_entry` | Add an integration or UI helper by running its config flow; remove it |
+| `egors.homeassistant.config_entry_info` | List config entries |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -117,13 +119,13 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 | Setting | Status | API / notes |
 |---|---|---|
 | `input_boolean`, `input_button`, `input_datetime`, `input_number`, `input_select`, `input_text`, `counter`, `timer`, `schedule` | ✅ one module each, `helper_info` | WS `<domain>/*` (storage collections) |
-| Template, group, threshold, and other config-flow helpers | 🟡 | Config entry flows, see Integrations |
+| Template, group, threshold, and other config-flow helpers | ✅ `config_entry` | Config entry flows, see Integrations |
 
 ### Integrations
 
 | Setting | Status | API / notes |
 |---|---|---|
-| Add an integration (config entry) | 🟡 | REST `/api/config/config_entries/flow`. Flows are multi-step and differ per integration, so they're harder to make declarative. |
+| Add an integration (config entry) | ✅ `config_entry`, `config_entry_info` | REST `/api/config/config_entries/flow`, step by step. Matched by domain + title; the entry's settings can't be read back, so existing entries aren't reconfigured. No OAuth or discovery flows. |
 | Integration options | 🟡 | REST `/api/config/config_entries/options/flow` |
 | Enable/disable, rename, delete entries | 🟡 | WS `config_entries/update`, `config_entries/disable`, REST `DELETE .../entry/{id}` |
 | Application credentials (OAuth client IDs) | 🟡 | WS `application_credentials/*` |

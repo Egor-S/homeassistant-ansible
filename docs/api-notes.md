@@ -399,6 +399,25 @@ unique** and not normalised (`" probe"` next to `Probe`). `icon: null` clears. U
   `device_consumption`, `device_consumption_water`, each optional) merges by section and returns the full prefs;
   items are validated (e.g. grid sources need `cost_adjustment_day`) and stored as sent.
 
+## Config entries and flows (spike for roadmap item 12)
+
+- `POST /api/config/config_entries/flow` (`handler`, `show_advanced_options`) starts a flow; unknown handler ->
+  `404 "Invalid handler specified"`. Each answer is a step: `form` (`step_id`, `data_schema` with `name`,
+  `required`, selectors, `description.suggested_value`, `errors`), `menu` (`menu_options`; answered with
+  `{"next_step_id": ...}`), `abort` (`reason`, e.g. `single_instance_allowed`, `already_configured`),
+  `create_entry` (`title`, `result` = the entry), or `external`/`progress` (OAuth, devices). Input goes to
+  `POST .../flow/<flow_id>`; invalid input -> `400 {"errors": {...}}` or a form with `errors`.
+  `DELETE .../flow/<flow_id>` -> `{"message": "Flow aborted"}`.
+- Probed: `local_calendar` (one form: `calendar_name`, `import`), `template` (menu of entity types, then a form;
+  the helper's settings are returned in `options`), `sun`/`radio_browser` (abort `single_instance_allowed`, both
+  set up by onboarding).
+- WS `config_entries/get` (`domain`, `type_filter`) lists entries: `entry_id`, `domain`, `title`, `source`, `state`,
+  `supports_options`, `disabled_by`, ... **The entry's `data` is never returned.** `config_entries/update`
+  (`entry_id`, `title`, `pref_*`) renames. `DELETE /api/config/config_entries/entry/<id>` ->
+  `{"require_restart": false}`; unknown -> `404 "Invalid entry specified"`.
+- Options flows: `POST /api/config/config_entries/options/flow` (`handler` = entry ID); the first form carries the
+  **current values as `suggested_value`**, so options can be compared before submitting.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.
