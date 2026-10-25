@@ -1,0 +1,253 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Remove leftovers of earlier runs
+      egors.homeassistant.area:
+        name: "{{ item }}"
+        state: absent
+      loop: [ansible_test_area, ansible_test_renamed, ansible_test_other]
+
+    - name: Create in check mode
+      egors.homeassistant.area: &create_args
+        name: ansible_test_area
+        icon: mdi:flask
+        aliases: [zeta, alpha]
+        labels: [no_such_label]
+      check_mode: true
+      diff: true
+      register: create_check
+
+    - name: Read areas after check mode
+      egors.homeassistant.area_info:
+        name: ansible_test_area
+      register: after_check
+
+    - name: Check mode predicted the area without creating it
+      ansible.builtin.assert:
+        that:
+          - create_check is changed
+          - create_check.area.name == 'ansible_test_area'
+          - create_check.area.aliases == ['alpha', 'zeta']
+          - create_check.diff.before == {}
+          - create_check.diff.after.icon == 'mdi:flask'
+          - after_check.areas == []
+
+    - name: Create without labels
+      egors.homeassistant.area: &create_nolabels
+        name: ansible_test_area
+        icon: mdi:flask
+        aliases: [zeta, alpha]
+      register: created
+
+    - name: Create is reported
+      ansible.builtin.assert:
+        that:
+          - created is changed
+          - created.area.area_id == 'ansible_test_area'
+          - created.area.icon == 'mdi:flask'
+          - created.area.aliases == ['alpha', 'zeta']
+          - created.area.labels == []
+          - created.area.floor_id is none
+
+    - name: Create again
+      egors.homeassistant.area: *create_nolabels
+      register: created_again
+
+    - name: Idempotent, also with reordered and duplicated aliases and a differently written name
+      egors.homeassistant.area:
+        name: "  ANSIBLE_TEST_AREA "
+        icon: mdi:flask
+        aliases: [alpha, zeta, alpha]
+      register: noop
+
+    - name: Unknown labels are dropped with a warning and reported changed only once
+      egors.homeassistant.area:
+        name: ansible_test_area
+        labels: [no_such_label]
+      register: bad_label
+
+    - name: Nothing changed
+      ansible.builtin.assert:
+        that:
+          - created_again is not changed
+          - noop is not changed
+          - noop.area.area_id == 'ansible_test_area'
+          - noop.area.name == 'ansible_test_area'
+          - bad_label.warnings | length == 1
+
+    - name: Update fields in check mode
+      egors.homeassistant.area: &update_args
+        name: ansible_test_area
+        icon: mdi:flask-outline
+        floor_id: some_floor
+        picture: /local/test.png
+        aliases: [beta]
+      check_mode: true
+      diff: true
+      register: update_check
+
+    - name: Update fields
+      egors.homeassistant.area: *update_args
+      register: updated
+
+    - name: Update again
+      egors.homeassistant.area: *update_args
+      register: updated_again
+
+    - name: Update changed only the given fields
+      ansible.builtin.assert:
+        that:
+          - update_check is changed
+          - update_check.diff.before.icon == 'mdi:flask'
+          - update_check.diff.after.icon == 'mdi:flask-outline'
+          - updated is changed
+          - updated.area.icon == 'mdi:flask-outline'
+          - updated.area.floor_id == 'some_floor'
+          - updated.area.picture == '/local/test.png'
+          - updated.area.aliases == ['beta']
+          - updated_again is not changed
+
+    - name: Partial update leaves other fields alone
+      egors.homeassistant.area:
+        name: ansible_test_area
+        floor_id: ""
+      register: partial
+
+    - name: Clear icon and aliases
+      egors.homeassistant.area:
+        area_id: ansible_test_area
+        icon: ""
+        aliases: []
+      register: cleared
+
+    - name: Clear again
+      egors.homeassistant.area:
+        area_id: ansible_test_area
+        icon: ""
+        aliases: []
+      register: cleared_again
+
+    - name: Fields were cleared selectively
+      ansible.builtin.assert:
+        that:
+          - partial is changed
+          - partial.area.floor_id is none
+          - partial.area.icon == 'mdi:flask-outline'
+          - partial.area.picture == '/local/test.png'
+          - partial.area.aliases == ['beta']
+          - cleared is changed
+          - cleared.area.icon is none
+          - cleared.area.aliases == []
+          - cleared.area.picture == '/local/test.png'
+          - cleared_again is not changed
+
+    - name: Rename via area_id
+      egors.homeassistant.area:
+        area_id: ansible_test_area
+        name: ansible_test_renamed
+      register: renamed
+
+    - name: Rename again
+      egors.homeassistant.area:
+        area_id: ansible_test_area
+        name: ansible_test_renamed
+      register: renamed_again
+
+    - name: Old name is gone, id kept
+      egors.homeassistant.area_info:
+        name: ansible_test_area
+      register: old_name
+
+    - name: Rename worked
+      ansible.builtin.assert:
+        that:
+          - renamed is changed
+          - renamed.area.area_id == 'ansible_test_area'
+          - renamed.area.name == 'ansible_test_renamed'
+          - renamed_again is not changed
+          - old_name.areas == []
+
+    - name: Present with an unknown area_id
+      egors.homeassistant.area:
+        area_id: ansible_test_nope
+        name: whatever
+      register: missing_present
+      ignore_errors: true
+
+    - name: Absent with an unknown area_id
+      egors.homeassistant.area:
+        area_id: ansible_test_nope
+        state: absent
+      register: missing_absent
+
+    - name: Empty name is rejected
+      egors.homeassistant.area:
+        name: "   "
+      register: empty_name
+      ignore_errors: true
+
+    - name: Creating a duplicate by renaming is rejected by Home Assistant
+      egors.homeassistant.area:
+        area_id: ansible_test_area
+        name: " KITCHEN "
+      register: duplicate
+      ignore_errors: true
+
+    - name: Errors are clear
+      ansible.builtin.assert:
+        that:
+          - missing_present is failed
+          - "'ansible_test_nope' in missing_present.msg"
+          - missing_absent is not changed
+          - empty_name is failed
+          - "'empty' in empty_name.msg"
+          - duplicate is failed
+          - "'already in use' in duplicate.msg"
+
+    - name: Delete in check mode
+      egors.homeassistant.area: &delete_args
+        name: ansible_test_renamed
+        state: absent
+      check_mode: true
+      diff: true
+      register: delete_check
+
+    - name: Area still exists
+      egors.homeassistant.area_info:
+        area_id: ansible_test_area
+      register: still_there
+
+    - name: Delete
+      egors.homeassistant.area: *delete_args
+      register: deleted
+
+    - name: Delete again
+      egors.homeassistant.area: *delete_args
+      register: deleted_again
+
+    - name: Read areas after delete
+      egors.homeassistant.area_info:
+      register: final
+
+    - name: Delete behaved
+      ansible.builtin.assert:
+        that:
+          - delete_check is changed
+          - delete_check.area == {}
+          - delete_check.diff.before.area_id == 'ansible_test_area'
+          - still_there.areas | length == 1
+          - deleted is changed
+          - deleted.area == {}
+          - deleted_again is not changed
+          - final.areas | map(attribute='area_id') | select('equalto', 'ansible_test_area') | list == []
+          - final.areas | map(attribute='area_id') | intersect(['living_room', 'kitchen', 'bedroom']) | length == 3
+
+  always:
+    - name: Clean up
+      egors.homeassistant.area:
+        name: "{{ item }}"
+        state: absent
+      loop: [ansible_test_area, ansible_test_renamed, ansible_test_other]

@@ -1,0 +1,62 @@
+---
+- module_defaults:
+    group/egors.homeassistant.all:
+      url: "{{ ha_url }}"
+      token: "{{ ha_token }}"
+  block:
+    - name: Create a test area
+      egors.homeassistant.area:
+        name: ansible_test_info
+        icon: mdi:information
+        aliases: [zz, aa]
+      register: created
+
+    - name: List all areas
+      egors.homeassistant.area_info:
+      register: all_areas
+
+    - name: List all areas in check mode
+      egors.homeassistant.area_info:
+      check_mode: true
+      register: all_check
+
+    - name: Filter by name, case and whitespace insensitive
+      egors.homeassistant.area_info:
+        name: " Ansible_Test_INFO "
+      register: by_name
+
+    - name: Filter by area_id
+      egors.homeassistant.area_info:
+        area_id: ansible_test_info
+      register: by_id
+
+    - name: Filter by unknown name
+      egors.homeassistant.area_info:
+        name: ansible_test_nope
+      register: by_unknown
+
+    - name: Default areas
+      egors.homeassistant.area_info:
+        name: Living Room
+      register: living_room
+
+    - name: Results are as expected
+      ansible.builtin.assert:
+        that:
+          - all_areas is not changed
+          - all_areas.areas | map(attribute='area_id') | intersect(['living_room', 'kitchen', 'bedroom', 'ansible_test_info']) | length == 4
+          - all_check.areas == all_areas.areas
+          - by_name.areas | length == 1
+          - by_name.areas[0].area_id == 'ansible_test_info'
+          - by_name.areas[0].aliases == ['aa', 'zz']
+          - by_name.areas[0].icon == 'mdi:information'
+          - by_name.areas[0].created_at is not defined
+          - by_id.areas == by_name.areas
+          - by_unknown.areas == []
+          - living_room.areas | length == 1
+          - living_room.areas[0].area_id == 'living_room'
+  always:
+    - name: Clean up
+      egors.homeassistant.area:
+        name: ansible_test_info
+        state: absent
