@@ -16,6 +16,7 @@
         password: "{{ hass_password }}"
         token_path: "{{ hass_token_path }}"
       register: hass_onboarding
+      no_log: true  # the result contains the token
 
     - name: Configure
       module_defaults:

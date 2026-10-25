@@ -47,6 +47,7 @@ container to a configured instance:
     password: "{{ hass_password }}"
     token_path: "{{ playbook_dir }}/.hass.token"
   register: hass_onboarding
+  no_log: true  # the result contains the token
 
 - name: Configure
   module_defaults:
