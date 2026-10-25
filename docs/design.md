@@ -49,6 +49,7 @@ time. Support for older versions may be added later.
 | `floor` | collection item | Same shape as `area`: match by `floor_id`, else case-insensitive `name`. Fields: `name`, `aliases` (set semantics), `icon`, `level` (int). |
 | `floor_info` | info | Lists floors. |
 | `label` / `label_info` | collection item / info | Same shape as `floor` (match by `label_id`, else name). Fields: `name`, `icon`, `color` (hex or theme color), `description`. |
+| `zone` / `zone_info` | collection item / info | Storage collection on the same `registry.py` (`entry_key="id"`; commands take `zone_id`). Names may repeat, so a name matching several zones fails. `latitude`/`longitude` required to create; `icon` can't be removed. |
 | `http_config` | singleton | **Partial** state like `core_config`, but `http/config/configure` replaces the whole config, so stable plus changes is sent. A change restarts HA into a 5-minute trial; the module waits for the WS connection to drop, reconnects (`reconnect_url`, for port/TLS changes) until `RUNNING`, checks HA runs on the new config, then promotes it. An unreachable result reverts itself. |
 
 Deferred: a set-level module (`areas` with `purge`, default `false`) once the
@@ -101,7 +102,9 @@ assignments), hence opt-in.
 - `--check` on a never-onboarded instance cannot get past `login` (no owner yet).
 - Generic registry logic (find/diff/create/update/delete, check mode, diff) lives
   in `module_utils/registry.py`; `area.py`/`floor.py` are ~20 lines of code plus docs.
-  Field kinds: `strings` and `ints` (`""` clears) and `lists` (set semantics).
+  Field kinds: `strings` and `ints` (`""` clears), `lists` (set semantics) and `values` (typed by
+  the argument spec, e.g. floats and bools). Storage collections (zones, later helpers) use the same
+  class with `entry_key`, `unclearable` and `required`.
 - An onboarded HA answers `/api/onboarding` with 404 after a restart (the views are
   only registered while onboarding is unfinished); `onboarding` treats that as done,
   and the compose healthcheck uses `/manifest.json`. Found by `http_config` restarts.

@@ -52,3 +52,4 @@ setup (interactive). Revisit on request.
 | # | Status | PR |
 |---|---|---|
 | 1 | done | #3 |
+| 2 | done | #4 |
