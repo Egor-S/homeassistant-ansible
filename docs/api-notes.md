@@ -317,6 +317,14 @@ names not unique (`P`, `P` -> `p`, `p_2`), unknown id -> `not_found`. Probed for
   `name_by_user: ""` is stored as `""`; `null` clears. **Unknown `area_id` is accepted and stored**; unknown labels
   are dropped. Unknown device -> `not_found "Device not found"`.
 
+## Category registry (`config/category_registry/*`)
+
+Every command takes `scope` (any string is accepted; the UI uses `automation`, `script`, `scene`, `helpers`).
+Entry `{"category_id","name","icon","created_at","modified_at"}`; `category_id` is a random ULID. Names are **not
+unique** and not normalised (`" probe"` next to `Probe`). `icon: null` clears. Unknown id on update/delete ->
+`invalid_info "Category ID doesn't exist"`. Entities are put in a category via
+`config/entity_registry/update` `categories: {scope: category_id}`.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

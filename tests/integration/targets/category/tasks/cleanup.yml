@@ -1,0 +1,7 @@
+---
+- name: Delete test categories
+  egors.homeassistant.category:
+    scope: "{{ item.0 }}"
+    name: "{{ item.1 }}"
+    state: absent
+  loop: "{{ ['automation', 'script'] | product(['ansible_test_category', 'ansible_test_renamed']) | list }}"
