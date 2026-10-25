@@ -239,6 +239,18 @@ Same shape of commands as areas: `list`, `create` (`name` required; optional `al
 - Unknown `floor_id`: update -> `unknown_error "Unknown error"`; delete -> `invalid_info "Floor ID doesn't exist"`.
 - Unchanged update is a no-op (`modified_at` unchanged).
 
+## Label registry (`config/label_registry/*`)
+
+Entry: `{"label_id","name","icon","color","description","created_at","modified_at"}`. Empty by default.
+Same commands as floors (`list`, `create`, `update`, `delete` by `label_id`); no aliases.
+
+- `color`: `#RRGGBB` or a theme color (`primary`, `accent`, `disabled`, `red`, `light-blue`, `blue-grey`, ...);
+  anything else -> `invalid_format "Color should be in the format #RRGGBB"`. Stored verbatim.
+- `null` clears `icon`, `color` and `description`; `description: ""` is stored as `""`.
+- Duplicate name (casefold + strip) -> `invalid_info "... is already in use"`; unknown `label_id`: update
+  -> `unknown_error`, delete -> `invalid_info "Label ID doesn't exist"`. Delete returns `null`.
+- Deleting a label removes it from the areas that had it.
+
 ## HTTP config (`http/config*`, admin only)
 
 Verified in the 2026.10.4 source (`components/http/{config,websocket_api}.py`) and live.

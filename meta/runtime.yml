@@ -8,3 +8,5 @@ action_groups:
     - area_info
     - floor
     - floor_info
+    - label
+    - label_info

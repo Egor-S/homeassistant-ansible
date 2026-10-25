@@ -32,6 +32,8 @@ ansible-galaxy collection install git+https://github.com/Egor-S/homeassistant-an
 | `egors.homeassistant.area_info` | List areas |
 | `egors.homeassistant.floor` | Manage a single floor (`level` may be 0 or negative) |
 | `egors.homeassistant.floor_info` | List floors |
+| `egors.homeassistant.label` | Manage a single label (icon, color, description) |
+| `egors.homeassistant.label_info` | List labels |
 
 All modules except `onboarding` and `login` belong to the action group
 `egors.homeassistant.all`, so the connection is configured once with `module_defaults`.
@@ -67,7 +69,7 @@ against a live instance. 🟡 rows only say an API exists; they don't promise a 
 | Areas | ✅ `area`, `area_info` | WS `config/area_registry/*` |
 | Floors | ✅ `floor`, `floor_info` | WS `config/floor_registry/*` |
 | Area / floor ordering | 🟡 | WS `config/{area,floor}_registry/reorder` |
-| Labels | 🟡 | WS `config/label_registry/*` (CRUD) |
+| Labels | ✅ `label`, `label_info` | WS `config/label_registry/*` |
 | Categories | 🟡 | WS `config/category_registry/*` (CRUD) |
 | Devices: area, name, labels, disable | 🟡 | WS `config/device_registry/update`. Devices come from integrations; no create. |
 | Entities: name, icon, area, labels, disable/hide, entity ID | 🟡 | WS `config/entity_registry/update`, `remove`. Created by integrations. |
@@ -193,7 +195,7 @@ HA_KEEP=1 scripts/integration.sh area   # reuse the running HA, one target
 `ansible_collections/egors/homeassistant` (required by ansible-test) and runs it there.
 The HA image is pinned in `docker-compose.yml` and bumped by Dependabot.
 
-See [docs/design.md](docs/design.md) for design decisions and
+See [docs/design.md](docs/design.md) for design decisions, [docs/roadmap.md](docs/roadmap.md) for what comes next, and
 [docs/api-notes.md](docs/api-notes.md) for verified API behaviour.
 
 ## License
